@@ -1,0 +1,157 @@
+{
+  "kitVersion": "1.7.0",
+  "createdAt": "2026-09-23T11:59:08.664Z",
+  "vars": {
+    "projectName": "josepho",
+    "packageName": "josepho",
+    "blit386Version": "^1.7.0",
+    "kitVersion": "^1.7.0",
+    "pmInstall": "npm install",
+    "pmRunDev": "npm run dev",
+    "pmRunBuild": "npm run build",
+    "pmRunFormat": "npm run format",
+    "pmRunLint": "npm run lint",
+    "entryFile": "/src/game.js",
+    "gameFile": "src/game.js"
+  },
+  "files": [
+    {
+      "path": ".editorconfig",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "a715709d594d3be9435a2dab3a0dcd1e3940ee543ffdacc5ac841f6520cf643d"
+    },
+    {
+      "path": ".gitignore",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "bfa5f8365a7772ac194672c136ef9187d729bc5008ae858106307be49d390578"
+    },
+    {
+      "path": ".prettierignore",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "93ebda467cbfd97897a31834cd2b481dc2e5fb4fbed1d29f9c2d9d25a50526ef"
+    },
+    {
+      "path": "AGENTS.md",
+      "class": "shared",
+      "kitVersion": "1.7.0",
+      "sha256": "b6da9a5329785e594110845626b8a536b6c2e75b4ec2c059215a1334db821b65"
+    },
+    {
+      "path": "biome.json",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "c73bb2c7009bea0203c344842315bf05609edf694327180f95a4faeebc04da22"
+    },
+    {
+      "path": "docs/audio.md",
+      "class": "kit-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "d6b943ad284f00e224120ad4203912a7606b3f084c6194dfdf2e39f1255b87fd"
+    },
+    {
+      "path": "docs/basics.md",
+      "class": "kit-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "b0d442ad09ccbe2b8bbe574aa7f308d569a8a4c7164a4ffab40add84d97e6f2d"
+    },
+    {
+      "path": "docs/drawing.md",
+      "class": "kit-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "71f457cf44d613837db1f9d450236c2254570ab74a193eab97a0c397504e55ff"
+    },
+    {
+      "path": "docs/getting-started.md",
+      "class": "kit-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "d17b6b4669d6e31b9e1fb6b90fd521ffc6e391c170448eef3c7a2aa4b407429d"
+    },
+    {
+      "path": "docs/hot-reload.md",
+      "class": "kit-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "6d4fb4bbcaa41b2f25f01b71efc54aa0981b69362770513a0188ce0beb7ca93a"
+    },
+    {
+      "path": "docs/input.md",
+      "class": "kit-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "b10f7518d6d3b82407b502105f90f455e74313745af8ca85512c48d5084cb052"
+    },
+    {
+      "path": "docs/palette.md",
+      "class": "kit-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "2426656a3250b99dcb8b537e38477faa6395b20629ce5302ece1ca4903f3d287"
+    },
+    {
+      "path": "docs/random.md",
+      "class": "kit-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "0b66d5755673649bb0bea9df7d72b1a5c98c2f4a190b9ee2f9374bd77ff3ce52"
+    },
+    {
+      "path": "docs/when-something-breaks.md",
+      "class": "kit-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "252dbd9e5735047b6ed84ae9b678a4c68d8e45c595796cfd9889506e6db9a9ed"
+    },
+    {
+      "path": "index.html",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "97c303050e1059e2494e68fd4e82ed4ab78a6614e45cba255b80d42c2855335b"
+    },
+    {
+      "path": "jsconfig.json",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "6fecee02962edd4879772e2b0181da28f3fe9612f8a69e65a950fcd17359a47b"
+    },
+    {
+      "path": "package.json",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "ee1685b13cbd3c67393c5bc205573b4bcc17bde9e904229c4a6129b5cb719530"
+    },
+    {
+      "path": "prettier.config.js",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "8be0adf34fc7e64e93e7bbd7039db8c6a244911e1768eb20c2d29204cc6f2ce2"
+    },
+    {
+      "path": "public/.gitkeep",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "README.md",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "3963a4cfd6aacfa0760f54343b282487d104d7a57ee8a02fb714c9da4c9dacc3"
+    },
+    {
+      "path": "scripts/prettier-plugin-compact-tables.mjs",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "ab173444170c06ccdf568f575ce9c27aabdf746116dc63397c97bc9ba735d430"
+    },
+    {
+      "path": "src/game.js",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "775c953d652473094a97224fb66bf66ca097707027e3c1efa56fff95b07d2515"
+    },
+    {
+      "path": "vite.config.js",
+      "class": "user-owned",
+      "kitVersion": "1.7.0",
+      "sha256": "f68185c7aae845fad9fef706fe712c86764f149780d205c51620f219fceb56dd"
+    }
+  ]
+}
