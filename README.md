@@ -1,6 +1,12 @@
-# josepho
+# Josepho
 
-A little pixel game built with [BLIT386](https://www.npmjs.com/package/blit386).
+A platformer in the spirit of Mario and SuperTux on a tiny 192 x 108 screen, built with
+[BLIT386](https://www.npmjs.com/package/blit386).
+
+The world of Lumen has lost its colors: the Sorter split all light into two boxes, black and white. Josepho fits in
+neither box - and so Josepho still carries every color. Wake the prisms and the palette itself comes back to life:
+first the grass, then the sky, then the flowers. Returning colors also change the world - leaves, clouds and bell
+flowers only become solid once their color is back.
 
 ## Run it
 
@@ -13,20 +19,29 @@ npm run dev
 
 A web address like `http://localhost:5173` appears. Open it in your browser to play.
 
-- Phone or tablet: tap or drag - the paddle follows your finger.
-- Computer: move the mouse to steer the paddle, or use the left and right arrow keys as a fallback.
+| Action | Keys |
+| --- | --- |
+| Walk | Arrow keys or A / D |
+| Run | Shift, X, J or Ctrl (hold) |
+| Jump | Space, Z, K, Up or W - hold for a higher jump |
+| Flutter | press jump again in the air and hold it - Josepho glides |
+| Drop through a plank | Down + jump |
+| Pause | Enter, Esc or P |
 
-Catch the falling blocks before they reach the bottom.
+Stomp greylings, but never thornbacks - knock those off by bumping the block under them. Prism blocks hold motes of
+light; one hides a glow petal that protects Josepho from one hit and lets you break stone bricks. Lanterns are
+checkpoints.
 
 ## Change the game
 
-Open `src/game.js`. Every line has a comment explaining what it does. Change a number or a color, save the file, and
-your browser updates by itself - most edits keep the game running (hot reload) instead of wiping your score. Edit a PNG
-or sound under `public/` and that asset updates in place too. A few things to try:
+Everything lives in `src/`, and nothing is loaded from files - all art and sound are generated at startup.
 
-- Make the blocks fall faster: find `ITEM_FALL_SPEED`.
-- Make the paddle wider or narrower: `PADDLE_WIDTH`.
-- Change the colors: the `palette.set(...)` lines in `init`.
+- `level1.js` - the map as plain text (a legend is at the top) plus the sign texts. Move a `?`, add an `e`, save.
+- `art-data.js` - every sprite as rows of letters; each letter is a palette slot.
+- `colors.js` - the palette and the grey-to-color system. Try other hex colors in `STATIC` or `SKY_KEYS`.
+- `actors.js` - `PHYS` at the top holds jump height, speeds and flutter length.
+- `sound.js` - synthesized sounds and the four-layer music.
+- `game.js` - the rules, the story texts, the HUD and the screens.
 
 More about hot reload: `docs/hot-reload.md`.
 

@@ -135,3 +135,20 @@ Run `npx blit agents sync` after a kit update (`npx blit upgrade`) to refresh th
 Everything below the managed end marker is yours. Write down decisions, todos, or project-specific rules here - for
 yourself or for your AI assistant. Kit updates (`npx blit agents sync`) rewrite only the managed part above and never
 touch this section.
+
+### Josepho - project notes
+
+- Screen 192 x 108, tiles 8 x 8, 60 FPS. Positions of moving things are integers in subpixels (16 per pixel,
+  `SUB` in `world.js`); every drawn coordinate is a whole pixel.
+- The palette has 64 slots (`colors.js`). Every slot belongs to a color group (SKY, EARTH, GREEN, BLOOM, SPIRIT,
+  NEUTRAL). The core mechanic is per-group saturation: the world starts grey and the prisms raise groups back to full
+  color. Palette slots are rewritten every frame in `Game.writePalette` - never recolor sprites by hand.
+- Color changes gameplay: `L` leaves need green, `C` clouds need sky, `b` bell springs need bloom (`level.gates`).
+- All art is text in `art-data.js`, packed into one atlas at startup (`SpriteSheet.fromIndexedPixels`). There is no
+  sprite flip in `drawSprite`, so left-facing frames are baked as `name<`, glow outlines as `name~`.
+- The engine's system font is too tall for this screen; `font.js` is a 3 x 5 font with Czech diacritics. Draw text
+  only through `gfx.text`.
+- Story and signs are Czech and must stay gender-neutral for Josepho (nonbinary): present tense, no past-tense verb
+  endings or gendered adjectives about Josepho; address the player in the imperative.
+- Controls read raw keys (`BT.isKeyDown`) OR the default gamepad mapping (`BT.isDown`).
+- Next chapters: add `levelN.js` with the same shape as `LEVEL1` (map, signs, prisms).
