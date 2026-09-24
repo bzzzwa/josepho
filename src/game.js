@@ -44,6 +44,9 @@ import { Level, SUB, TILE } from './world.js';
 const SCREEN_W = 192;
 const SCREEN_H = 108;
 
+// Keep in step with "version" in package.json and CHANGELOG.md.
+export const VERSION = '0.1';
+
 const STORY = [
     'KDYSI ZÁŘIL SVĚT LUMEN VŠEMI BARVAMI.',
     'PAK PŘIŠEL TŘÍDIČ. ROZDĚLIL SVĚTLO DO DVOU KRABIC - ČERNÉ A BÍLÉ. CO SE NEVEŠLO, ZMIZELO.',
@@ -855,6 +858,8 @@ export class Game {
         if (Math.floor(this.tick / 30) % 2 === 0) {
             gfx.textCentered('STISKNI MEZERNÍK', SCREEN_W / 2, 100, C.MOTE);
         }
+        const version = `V${VERSION}`;
+        gfx.text(version, SCREEN_W - gfx.textWidth(version) - 3, 100, C.UI_DIM);
     }
 
     renderStory() {
