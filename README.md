@@ -96,3 +96,8 @@ the usual suspects: blank screens, "command not found," forgotten `await`, and m
   for.
 - [blit386.dev/llms.txt](https://blit386.dev/llms.txt) - the whole site's contents as one plain text file, handy for
   skimming or pasting into a chat.
+
+## License
+
+Josepho is released under the MIT License - see `LICENSE`. The BLIT386 engine is a separate package with its own
+license.

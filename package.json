@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Josepho - a tiny-resolution platformer where waking prisms brings color back to a grey world. Chapter 1: Svitani.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22.18.0"
