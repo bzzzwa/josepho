@@ -10,6 +10,8 @@ flowers only become solid once their color is back.
 
 Current version: **0.1** - Chapter 1, "Svitani" (Dawn). See `CHANGELOG.md`.
 
+**Play it in your browser: https://bzzzwa.github.io/josepho/**
+
 ## Run it
 
 You need [Node.js](https://nodejs.org) installed once (download the big LTS button). Then, in this folder:
