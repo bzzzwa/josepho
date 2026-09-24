@@ -2,6 +2,20 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.1.1 - 2026-09-24
+
+### Added
+
+- Play in the browser: the game is published automatically to GitHub Pages (https://bzzzwa.github.io/josepho/) by a
+  GitHub Actions workflow on every push to `master`.
+- MIT license.
+
+### Changed
+
+- The build uses relative paths (`base: './'` in `vite.config.js`), so the built game runs from any folder, not only
+  from the root of a domain.
+- The version number on the title screen now shows the full version.
+
 ## 0.1.0 - 2026-09-24
 
 The first playable version: Chapter 1, "Svitani" (Dawn).

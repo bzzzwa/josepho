@@ -8,7 +8,7 @@ neither box - and so Josepho still carries every color. Wake the prisms and the 
 first the grass, then the sky, then the flowers. Returning colors also change the world - leaves, clouds and bell
 flowers only become solid once their color is back.
 
-Current version: **0.1** - Chapter 1, "Svitani" (Dawn). See `CHANGELOG.md`.
+Current version: **0.1.1** - Chapter 1, "Svitani" (Dawn). See `CHANGELOG.md`.
 
 **Play it in your browser: https://bzzzwa.github.io/josepho/**
 
