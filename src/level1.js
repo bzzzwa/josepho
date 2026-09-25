@@ -35,7 +35,7 @@ export const LEVEL1 = {
 
     // One text per 's' in the map, left to right. Czech, and never gendered for Josepho.
     signs: [
-        '< > CHŮZE   SHIFT BĚH\nMEZERNÍK SKOK. ČÍM DÉLE HO DRŽÍŠ, TÍM VÝŠ.',
+        '< > CHŮZE   X BĚH   Z NEBO MEZERNÍK SKOK\nČÍM DÉLE SKOK DRŽÍŠ, TÍM VÝŠ.',
         'SVĚT JE ŠEDÝ. NA KOPCI SPÍ HRANOL. DOTKNI SE HO A PROBUĎ HO.',
         'VELKÁ VODA? VYSKOČ A VE VZDUCHU STISKNI SKOK ZNOVU. DOKUD HO DRŽÍŠ, KŘÍDLA TĚ NESOU.',
         'BODLINCI NOSÍ KORUNU Z TRNŮ. NA HLAVU JIM NESKÁKEJ. BLOK ZESPODU JE ALE SHODÍ.',

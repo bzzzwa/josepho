@@ -26,11 +26,14 @@ A web address like `http://localhost:5173` appears. Open it in your browser to p
 | Action | Keys |
 | --- | --- |
 | Walk | Arrow keys or A / D |
-| Run | Shift, X, J or Ctrl (hold) |
-| Jump | Space, Z, K, Up or W - hold for a higher jump |
+| Run | X or J (hold) - Shift and Ctrl work too |
+| Jump | Z, K, Space, Up or W - hold for a higher jump |
 | Flutter | press jump again in the air and hold it - Josepho glides |
 | Drop through a plank | Down + jump |
 | Pause | Enter, Esc or P |
+
+Tip: many keyboards cannot register some three-key combinations (Shift + arrow + Space is a common one), so a jump
+can get lost while running. Arrows + X (run) + Z (jump), or A / D + J + K, avoid that.
 
 Stomp greylings, but never thornbacks - knock those off by bumping the block under them. Prism blocks hold motes of
 light; one hides a glow petal that protects Josepho from one hit and lets you break stone bricks. Lanterns are
