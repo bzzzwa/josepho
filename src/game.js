@@ -18,7 +18,10 @@
 //   gfx.js         drawing helpers
 //   touch.js       on-screen controls for phones and tablets
 //   fullscreen.js  fullscreen and landscape lock (browser API)
+//   audio-unlock.js  starts the sound on phones (works around an engine limitation)
 
+// Must come first: it has to be in place before the engine creates its audio (see the file).
+import './audio-unlock.js';
 import { bootstrap, BT, Color32, Vector2i } from 'blit386';
 import {
     Bell,

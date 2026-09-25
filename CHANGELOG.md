@@ -14,6 +14,11 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
 - A "turn your device sideways" screen when a phone is held upright; the game pauses meanwhile.
 - Touch versions of the texts that mention keys.
 
+### Fixed
+
+- No sound on phones. BLIT386 1.7 starts audio on the beginning of a touch, which mobile browsers do not accept;
+  `src/audio-unlock.js` now also starts it when the touch ends.
+
 ### Changed
 
 - The canvas can grow up to 3840 x 2160 instead of stopping at 960 x 720, so it fills large and fullscreen displays.
