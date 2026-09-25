@@ -26,11 +26,20 @@ A web address like `http://localhost:5173` appears. Open it in your browser to p
 | Action | Keys |
 | --- | --- |
 | Walk | Arrow keys or A / D |
-| Run | Shift, X, J or Ctrl (hold) |
-| Jump | Space, Z, K, Up or W - hold for a higher jump |
+| Run | X or J (hold) - Shift and Ctrl work too |
+| Jump | Z, K, Space, Up or W - hold for a higher jump |
 | Flutter | press jump again in the air and hold it - Josepho glides |
 | Drop through a plank | Down + jump |
 | Pause | Enter, Esc or P |
+
+On a phone or tablet, on-screen buttons appear: arrows at the lower left (hold a direction for a moment and Josepho
+starts running), a jump button at the lower right, pause at the top. Hold the device sideways. Tapping to start also
+switches to fullscreen; the fullscreen button is on the title screen (top right) and on the pause screen, and on a
+computer the F key toggles it. iPhone browsers cannot go fullscreen - use Share -> Add to Home Screen instead, and
+Josepho then opens without the browser bars.
+
+Tip: many keyboards cannot register some three-key combinations (Shift + arrow + Space is a common one), so a jump
+can get lost while running. Arrows + X (run) + Z (jump), or A / D + J + K, avoid that.
 
 Stomp greylings, but never thornbacks - knock those off by bumping the block under them. Prism blocks hold motes of
 light; one hides a glow petal that protects Josepho from one hit and lets you break stone bricks. Lanterns are

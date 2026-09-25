@@ -35,13 +35,18 @@ export const LEVEL1 = {
 
     // One text per 's' in the map, left to right. Czech, and never gendered for Josepho.
     signs: [
-        '< > CHŮZE   SHIFT BĚH\nMEZERNÍK SKOK. ČÍM DÉLE HO DRŽÍŠ, TÍM VÝŠ.',
+        '< > CHŮZE   X BĚH   Z NEBO MEZERNÍK SKOK\nČÍM DÉLE SKOK DRŽÍŠ, TÍM VÝŠ.',
         'SVĚT JE ŠEDÝ. NA KOPCI SPÍ HRANOL. DOTKNI SE HO A PROBUĎ HO.',
         'VELKÁ VODA? VYSKOČ A VE VZDUCHU STISKNI SKOK ZNOVU. DOKUD HO DRŽÍŠ, KŘÍDLA TĚ NESOU.',
         'BODLINCI NOSÍ KORUNU Z TRNŮ. NA HLAVU JIM NESKÁKEJ. BLOK ZESPODU JE ALE SHODÍ.',
         'TŘÍDIČ ŘÍKÁ, ŽE SVĚTLO MÁ JEN DVĚ PODOBY. DUHA SE MU SMĚJE.',
         'ZVONKY SPÍ, DOKUD SE NEVRÁTÍ KVĚTY. OTEVŘENÝ ZVONEK TĚ VYHODÍ AŽ KE KORUNÁM.',
     ],
+
+    // Touch-screen versions of signs that talk about keys (by sign index). The others are shown as they are.
+    touchSigns: {
+        0: '< > CHŮZE. KDYŽ SMĚR DRŽÍŠ DÉLE, JOSEPHO SE ROZBĚHNE.\nKRUH VPRAVO JE SKOK. ČÍM DÉLE HO DRŽÍŠ, TÍM VÝŠ.',
+    },
 
     // What each small prism gives back, in the order 1, 2, 3.
     prisms: [

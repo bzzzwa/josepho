@@ -2,6 +2,24 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- Play on phones and tablets: on-screen controls (arrows, jump, pause) using up to three fingers at once. Holding a
+  direction makes Josepho run.
+- Fullscreen: tapping to start on a phone goes fullscreen and locks landscape where the browser allows it; a
+  fullscreen button on the title and pause screens; the F key toggles it on a computer.
+- "Add to Home Screen" support (web manifest, icon), which is the fullscreen option on iPhone.
+- A "turn your device sideways" screen when a phone is held upright; the game pauses meanwhile.
+- Touch versions of the texts that mention keys.
+
+### Changed
+
+- The canvas can grow up to 3840 x 2160 instead of stopping at 960 x 720, so it fills large and fullscreen displays.
+- The screen stays awake while playing, and touches no longer scroll or zoom the page.
+- The first sign now suggests X (run) and Z (jump), which avoids keyboards dropping Shift + arrow + Space.
+
 ## 0.1.1 - 2026-09-24
 
 ### Added

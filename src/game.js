@@ -16,6 +16,8 @@
 //   fx.js          particles and rings
 //   sound.js       synthesized sound effects and the layered music
 //   gfx.js         drawing helpers
+//   touch.js       on-screen controls for phones and tablets
+//   fullscreen.js  fullscreen and landscape lock (browser API)
 
 import { bootstrap, BT, Color32, Vector2i } from 'blit386';
 import {
@@ -35,10 +37,12 @@ import {
 } from './actors.js';
 import { Background } from './background.js';
 import { C, computePalette, createChromaState, GROUP, PALETTE_SIZE } from './colors.js';
+import { fullscreen } from './fullscreen.js';
 import { Fx } from './fx.js';
 import { gfx } from './gfx.js';
 import { LEVEL1 } from './level1.js';
 import { Sound } from './sound.js';
+import { TouchControls } from './touch.js';
 import { Level, SUB, TILE } from './world.js';
 
 const SCREEN_W = 192;
@@ -65,7 +69,13 @@ export class Game {
             displaySize: new Vector2i(SCREEN_W, SCREEN_H),
             targetFPS: 60,
             isCapturingKeyboardScroll: true,
+            // touches belong to the game: no page scrolling or zooming under the fingers
+            isCapturingPointerScroll: true,
+            // keep the phone screen awake while playing
+            isWakeLockEnabled: true,
             preferredOrientation: 'landscape',
+            // let the canvas grow to fill big and fullscreen displays (the default stops at 960 x 720)
+            maxCanvasSize: new Vector2i(3840, 2160),
         };
     }
 
@@ -85,6 +95,9 @@ export class Game {
         await this.sound.init();
         this.fx = new Fx();
         this.fx.reducedMotion = BT.isReducedMotionPreferred;
+
+        this.touch = new TouchControls();
+        fullscreen.install();
 
         this.tick = 0;
         this.prevKeys = {};
@@ -194,23 +207,50 @@ export class Game {
     // ------------------------------------------------------------------ input
 
     readInput() {
+        const t = this.touch;
+        t.update();
         const k = (...codes) => codes.some((c) => BT.isKeyDown(c));
         const b = (btn) => BT.isDown(btn, 0);
         const now = {
-            left: k('ArrowLeft', 'KeyA') || b(BT.BTN_LEFT),
-            right: k('ArrowRight', 'KeyD') || b(BT.BTN_RIGHT),
+            left: k('ArrowLeft', 'KeyA') || b(BT.BTN_LEFT) || t.left,
+            right: k('ArrowRight', 'KeyD') || b(BT.BTN_RIGHT) || t.right,
             down: k('ArrowDown', 'KeyS') || b(BT.BTN_DOWN),
-            jump: k('Space', 'KeyZ', 'KeyK', 'ArrowUp', 'KeyW') || b(BT.BTN_A) || b(BT.BTN_UP),
-            run: k('ShiftLeft', 'ShiftRight', 'KeyX', 'KeyJ', 'ControlLeft', 'ControlRight') || b(BT.BTN_B) || b(BT.BTN_X),
+            jump: k('Space', 'KeyZ', 'KeyK', 'ArrowUp', 'KeyW') || b(BT.BTN_A) || b(BT.BTN_UP) || t.jump,
+            run: k('ShiftLeft', 'ShiftRight', 'KeyX', 'KeyJ', 'ControlLeft', 'ControlRight') || b(BT.BTN_B) || b(BT.BTN_X) || t.run,
             start: k('Enter', 'Escape', 'KeyP') || b(BT.BTN_START),
         };
         const inp = {
             ...now,
             jumpPressed: now.jump && !this.prevKeys.jump,
-            startPressed: now.start && !this.prevKeys.start,
+            startPressed: (now.start && !this.prevKeys.start) || (t.pausePressed && this.state === 'play'),
+            // any new touch or click this frame (menus use it as "confirm")
+            tap: t.taps.length > 0,
         };
         this.prevKeys = now;
         return inp;
+    }
+
+    /** Phone held upright: the 16:9 screen would be tiny, so the game waits. */
+    isPortrait() {
+        return this.touch.active && typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
+    }
+
+    /** The fullscreen button's tap area on the title and pause screens. */
+    fullscreenButton() {
+        return this.state === 'title' ? { x: 172, y: 0, w: 20, h: 14 } : { x: 40, y: 64, w: 112, h: 16 };
+    }
+
+    /** Handles a tap on the fullscreen button; returns true if the tap was used. */
+    handleFullscreenTap() {
+        if (!fullscreen.isSupported) {
+            return false;
+        }
+        const r = this.fullscreenButton();
+        if (this.touch.tappedIn(r.x, r.y, r.w, r.h)) {
+            fullscreen.request();
+            return true;
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------ update
@@ -257,7 +297,14 @@ export class Game {
         if (this.tick % 50 === 0) {
             this.fx.add({ kind: 'spark', x: 60 + Math.random() * 80, y: 60 + Math.random() * 20, vx: 0, vy: -0.2, life: 60, hue: this.tick % 6 });
         }
-        if ((inp.jumpPressed || inp.startPressed) && this.stateTime > 20) {
+        if (inp.tap && this.handleFullscreenTap()) {
+            return;
+        }
+        if ((inp.jumpPressed || inp.startPressed || inp.tap) && this.stateTime > 20) {
+            if (inp.tap && this.touch.active) {
+                // on phones, starting the game also goes fullscreen
+                fullscreen.requestEnter();
+            }
             this.sound.play('lantern');
             this.storyPage = 0;
             this.typed = 0;
@@ -277,7 +324,7 @@ export class Game {
             this.startPlay();
             return;
         }
-        if (inp.jumpPressed) {
+        if (inp.jumpPressed || inp.tap) {
             if (this.typed < page.length) {
                 this.typed = page.length;
             } else if (this.storyPage < STORY.length - 1) {
@@ -304,6 +351,18 @@ export class Game {
             if (this.chroma.fade === 0) {
                 this.fadeIn = false;
             }
+        }
+        if (this.isPortrait() && this.finaleTime < 0) {
+            this.paused = true;
+            return;
+        }
+        if (this.paused && inp.tap) {
+            // on the pause screen: the fullscreen button, or tap anywhere else to continue
+            if (!this.handleFullscreenTap()) {
+                this.paused = false;
+                this.sound.play('text');
+            }
+            return;
         }
         if (inp.startPressed && this.finaleTime < 0 && !this.player.dead) {
             this.paused = !this.paused;
@@ -467,7 +526,7 @@ export class Game {
         }
         if (near) {
             near.read = true;
-            const text = LEVEL1.signs[near.index] ?? '';
+            const text = this.signText(near.index);
             if (this.typed < text.length) {
                 this.typed++;
                 if (this.typed % 3 === 0) {
@@ -662,7 +721,7 @@ export class Game {
         if (this.stateTime % 30 === 0) {
             this.fx.sparks(20 + Math.random() * 150, 20 + Math.random() * 30, 16, 1.2);
         }
-        if (this.stateTime > 60 && (inp.jumpPressed || inp.startPressed)) {
+        if (this.stateTime > 60 && (inp.jumpPressed || inp.startPressed || inp.tap)) {
             this.buildLevel();
             this.resetChroma();
             this.fx.clear();
@@ -723,6 +782,31 @@ export class Game {
                 this.renderClear();
                 break;
         }
+        if (this.isPortrait()) {
+            this.renderRotateHint();
+        }
+    }
+
+    renderRotateHint() {
+        gfx.rect(0, 0, SCREEN_W, SCREEN_H, C.INK);
+        // a little phone turning on its side
+        const t = Math.floor(this.tick / 40) % 2;
+        if (t) {
+            gfx.frame(84, 34, 24, 14, C.WHITE);
+            gfx.rect(104, 39, 2, 4, C.WHITE);
+        } else {
+            gfx.frame(89, 28, 14, 24, C.WHITE);
+            gfx.rect(94, 48, 4, 2, C.WHITE);
+        }
+        gfx.textCentered('OTOČ ZAŘÍZENÍ NA ŠÍŘKU', SCREEN_W / 2, 66, C.WHITE);
+    }
+
+    /** The sign text, with a touch version where the keyboard one would not make sense. */
+    signText(index) {
+        if (this.touch.active && LEVEL1.touchSigns?.[index]) {
+            return LEVEL1.touchSigns[index];
+        }
+        return LEVEL1.signs[index] ?? '';
     }
 
     renderWorld(withActors) {
@@ -812,7 +896,7 @@ export class Game {
         }
 
         if (this.activeSign) {
-            const text = LEVEL1.signs[this.activeSign.index] ?? '';
+            const text = this.signText(this.activeSign.index);
             const lines = gfx.wrap(text, SCREEN_W - 20);
             const h = lines.length * gfx.lineHeight + 7;
             const top = 12;
@@ -825,10 +909,23 @@ export class Game {
             });
         }
 
+        if (this.touch.active && !this.paused && this.finaleTime < 0) {
+            this.touch.render(gfx);
+        }
+
         if (this.paused) {
             this.dim();
-            gfx.textCentered('PAUZA', SCREEN_W / 2, 46, C.WHITE);
-            gfx.textCentered('ENTER POKRAČUJE', SCREEN_W / 2, 58, C.UI_DIM);
+            gfx.rect(30, 30, SCREEN_W - 60, 52, C.INK);
+            gfx.frame(30, 30, SCREEN_W - 60, 52, C.UI_DIM);
+            gfx.textCentered('PAUZA', SCREEN_W / 2, 40, C.WHITE);
+            gfx.textCentered(this.touch.active ? 'KLEPNI PRO POKRAČOVÁNÍ' : 'ENTER POKRAČUJE', SCREEN_W / 2, 52, C.UI_DIM);
+            if (fullscreen.isSupported) {
+                const label = fullscreen.isOn ? 'ZRUŠIT CELOU OBRAZOVKU' : 'CELÁ OBRAZOVKA';
+                const w = gfx.textWidth(label) + 13;
+                const x = Math.round((SCREEN_W - w) / 2);
+                gfx.tint('tbFull', x, 69, C.MOTE);
+                gfx.text(label, x + 13, 70, C.MOTE);
+            }
         }
     }
 
@@ -856,7 +953,11 @@ export class Game {
         }
         gfx.textCentered('KAPITOLA 1: SVÍTÁNÍ', SCREEN_W / 2, 44, C.WHITE);
         if (Math.floor(this.tick / 30) % 2 === 0) {
-            gfx.textCentered('STISKNI MEZERNÍK', SCREEN_W / 2, 100, C.MOTE);
+            gfx.textCentered(this.touch.active ? 'KLEPNI PRO START' : 'STISKNI MEZERNÍK', SCREEN_W / 2, 100, C.MOTE);
+        }
+        if (fullscreen.isSupported) {
+            gfx.tint('tbFull', 180, 4, C.INK);
+            gfx.tint('tbFull', 179, 3, fullscreen.isOn ? C.MOTE : C.WHITE);
         }
         const version = `V${VERSION}`;
         gfx.text(version, SCREEN_W - gfx.textWidth(version) - 3, 100, C.UI_DIM);
@@ -880,7 +981,9 @@ export class Game {
         if (this.typed >= page.length && Math.floor(this.tick / 25) % 2 === 0) {
             gfx.text('>', SCREEN_W - 12, 98, C.MOTE);
         }
-        gfx.text('ENTER PŘESKOČÍ', 4, 100, C.UI_DIM);
+        if (!this.touch.active) {
+            gfx.text('ENTER PŘESKOČÍ', 4, 100, C.UI_DIM);
+        }
     }
 
     renderClear() {
@@ -901,7 +1004,7 @@ export class Game {
         gfx.textCentered(`JISKRY ${this.moteCount}/${this.totalMotes}    ČAS ${time}`, SCREEN_W / 2, 72, C.GHOST);
         gfx.draw(this.tick % 40 < 20 ? 'j.happy' : 'j.idle0', 91, 79);
         if (this.stateTime > 60 && Math.floor(this.tick / 30) % 2 === 0) {
-            gfx.textCentered('STISKNI MEZERNÍK', SCREEN_W / 2, 95, C.UI_DIM);
+            gfx.textCentered(this.touch.active ? 'KLEPNI PRO NÁVRAT' : 'STISKNI MEZERNÍK', SCREEN_W / 2, 95, C.UI_DIM);
         }
     }
 }

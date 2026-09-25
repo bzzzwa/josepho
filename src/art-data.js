@@ -468,6 +468,37 @@ const hudPrismOn = ['..n..', '.n0n.', 'n012n', '.n3n.', '..n..'];
 const arrowLeft = ['..#', '.##', '###', '.##', '..#'];
 const arrowRight = ['#..', '##.', '###', '##.', '#..'];
 
+// Touch buttons (masks). The frames are generated; the icons are drawn here.
+function roundedBox(w, h) {
+    return Array.from({ length: h }, (_, y) =>
+        Array.from({ length: w }, (_, x) => {
+            const edgeX = x === 0 || x === w - 1;
+            const edgeY = y === 0 || y === h - 1;
+            const corner = (x < 2 || x > w - 3) && (y < 2 || y > h - 3);
+            if (corner) {
+                return (x === 1 || x === w - 2) && (y === 1 || y === h - 2) ? '#' : '.';
+            }
+            return edgeX || edgeY ? '#' : '.';
+        }).join(''),
+    );
+}
+function ring(d) {
+    const r = (d - 1) / 2;
+    return Array.from({ length: d }, (_, y) =>
+        Array.from({ length: d }, (_, x) => {
+            const dist = Math.hypot(x - r, y - r);
+            return dist <= r + 0.3 && dist > r - 0.9 ? '#' : '.';
+        }).join(''),
+    );
+}
+const tbBox = roundedBox(18, 18);
+const tbCircle = ring(23);
+const tbLeft = ['...#...', '..##...', '.######', '#######', '.######', '..##...', '...#...'];
+const tbRight = tbLeft.map((row) => row.split('').reverse().join(''));
+const tbUp = ['...#...', '..###..', '.#####.', '#######', '..###..', '..###..', '..###..'];
+const tbPause = ['##.##', '##.##', '##.##', '##.##', '##.##', '##.##'];
+const tbFull = ['###...###', '#.......#', '.........', '.........', '.........', '#.......#', '###...###'];
+
 // Dither patterns, 64 wide (index 1 marks the dots). Drawn with a palette offset to pick their color.
 function ditherRows(pattern) {
     return pattern.map((row) => row.repeat(64 / row.length));
@@ -542,6 +573,13 @@ export const MASKS = {
     dither50,
     dither25,
     dither12,
+    tbBox,
+    tbCircle,
+    tbLeft,
+    tbRight,
+    tbUp,
+    tbPause,
+    tbFull,
     ...FONT_MASKS,
 };
 
