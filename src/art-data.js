@@ -5,7 +5,7 @@
 // of the ones that need to face left, and returns the pixels plus a name -> rectangle map.
 // No engine imports here, so the art can be previewed and tested outside the browser.
 
-import { C } from './colors.js';
+import { C, STRIPE0 } from './colors.js';
 import { FONT_MASKS } from './font.js';
 
 export const CHARS = {
@@ -61,6 +61,11 @@ export const CHARS = {
     H: C.WATER0 + 3,
     N: C.WATER_DEEP,
     T: C.WATER_FOAM,
+    // spectrum stripe 0 (dark, base, light, glow); drawn with a palette offset for the other stripes
+    6: STRIPE0,
+    7: STRIPE0 + 1,
+    8: STRIPE0 + 2,
+    9: STRIPE0 + 3,
 };
 
 // ---------------------------------------------------------------------------------------------------------
@@ -459,6 +464,13 @@ const cloudBig = [
 ];
 const cloudSmall = ['....jjjj....', '..jjjjjjjjj.', 'jjjjjjjjjjjj', 'kjjjjjjjjjjk', '.kkkkjjkkkk.'];
 
+// Spectrum tiles (8 x 8): a full block and a ledge you can jump up through, plus their ghost outlines for
+// when the stripe's color is off. Only stripe slots are used, so a palette offset recolors the whole tile.
+const sBlock = ['66666666', '69888887', '68777776', '68777776', '68777776', '68777776', '67777776', '66666666'];
+const sBlockGhost = ['7.7.7.7.', '.......7', '7.......', '.......7', '7.......', '.......7', '7.......', '.7.7.7.7'];
+const sLedge = ['69888888', '87777777', '66666666', '.6....6.', '........', '........', '........', '........'];
+const sLedgeGhost = ['7.7.7.7.', '.......7', '.7.7.7.7', '........', '........', '........', '........', '........'];
+
 // HUD icons.
 const hudMote = ['.nn.', 'nmmn', 'nmmn', '.nn.'];
 const hudPrismOff = ['..U..', '.UuU.', 'UuuuU', '.UuU.', '..U..'];
@@ -557,6 +569,10 @@ export const SPRITES = {
     tree: tree,
     cloudBig: cloudBig,
     cloudSmall: cloudSmall,
+    sBlock: sBlock,
+    sBlockGhost: sBlockGhost,
+    sLedge: sLedge,
+    sLedgeGhost: sLedgeGhost,
     hudMote: hudMote,
     hudPrismOff: hudPrismOff,
     hudPrismOn: hudPrismOn,

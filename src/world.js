@@ -3,13 +3,23 @@
 // Positions of moving things are kept in "subpixels" (1/16 of a pixel) as whole numbers, so motion can be
 // smooth and slow while every drawn coordinate is still a whole pixel.
 
-import { C } from './colors.js';
+import { C, STRIPE_SHADES } from './colors.js';
 
 export const TILE = 8;
 export const SUB = 16;
 
 const SOLID = new Set(['#', 'R', 'B', '?', 'G', 'U']);
-const ENTITY_CHARS = new Set(['@', 'o', 'e', 't', 's', '1', '2', '3', 'F', 'l', 'b', 'f', 'T']);
+export const TILE_CHARS = new Set(['.', '#', 'R', 'B', '?', 'G', 'U', '=', '~', '^']);
+export const ENTITY_CHARS = new Set(['@', 'o', 'e', 't', 's', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F', 'l', 'b', 'f', 'T']);
+
+// Color-gated tiles every level knows. A level adds its own in `legend` (see src/levels/README.md):
+//   kind  'solid' (a full block) or 'oneway' (a ledge you can jump up through)
+//   gate  the color group that must be on for the tile to have volume
+//   look  which art to draw: leaf, cloud, block, ledge
+export const BUILTIN_LEGEND = {
+    L: { kind: 'oneway', gate: 'green', look: 'leaf' },
+    C: { kind: 'oneway', gate: 'sky', look: 'cloud' },
+};
 
 export function hash2(x, y) {
     let h = (x * 374761393 + y * 668265263) | 0;
@@ -36,10 +46,19 @@ export class Level {
             }
         }
         this.spawns.sort((a, b) => a.tx - b.tx || a.ty - b.ty);
-        // which color-gated platforms are solid
-        this.gates = { green: false, sky: false, bloom: false };
+        // color-gated tiles: map character -> { kind, gate, look }
+        this.legend = { ...BUILTIN_LEGEND };
+        for (const [ch, entry] of Object.entries(def.legend ?? {})) {
+            this.legend[ch] = { kind: 'solid', look: 'block', ...entry };
+        }
+        // spectrum stripe order, for picking each stripe's palette offset when drawing
+        this.stripeIndex = Object.fromEntries((def.spectrum ?? []).map((st, i) => [st.id, i]));
+        // which color groups are on: group name -> true. A gated tile has volume only while its gate is on.
+        this.gates = {};
         // tile bounce animations: key "x,y" -> frames left
         this.bumps = new Map();
+        // tiles changed while playing ("x,y" -> new character), so a saved game can put them back
+        this.changes = new Map();
         // grass tufts drawn in front of the player
         this.tufts = [];
         for (let x = 0; x < this.w; x++) {
@@ -64,8 +83,19 @@ export class Level {
         }
     }
 
+    /** Is this map character a color-gated tile whose color is on? */
+    gatedOn(ch, kind) {
+        const entry = this.legend[ch];
+        return !!entry && entry.kind === kind && !!this.gates[entry.gate];
+    }
+
+    /** Does this map character block movement from every side right now? */
+    isSolidTile(ch) {
+        return SOLID.has(ch) || this.gatedOn(ch, 'solid');
+    }
+
     isOneWay(ch) {
-        return ch === '=' || (ch === 'L' && this.gates.green) || (ch === 'C' && this.gates.sky);
+        return ch === '=' || this.gatedOn(ch, 'oneway');
     }
 
     /**
@@ -83,7 +113,7 @@ export class Level {
                     return true; // the world's side walls
                 }
                 const ch = this.tile(tx, ty);
-                if (SOLID.has(ch)) {
+                if (SOLID.has(ch) || this.gatedOn(ch, 'solid')) {
                     return true;
                 }
                 if (movingDown && !dropThrough && ty === y1 && this.isOneWay(ch) && py + h - 1 === ty * TILE) {
@@ -130,18 +160,20 @@ export class Level {
         const ch = this.tile(tx, ty);
         if (ch === '?' || ch === 'G') {
             this.set(tx, ty, 'U');
+            this.changes.set(`${tx},${ty}`, 'U');
             this.bumps.set(`${tx},${ty}`, 8);
             return ch === '?' ? 'mote' : 'petal';
         }
         if (ch === 'B') {
             if (canBreak) {
                 this.set(tx, ty, '.');
+                this.changes.set(`${tx},${ty}`, '.');
                 return 'break';
             }
             this.bumps.set(`${tx},${ty}`, 8);
             return 'bump';
         }
-        if (SOLID.has(ch)) {
+        if (this.isSolidTile(ch)) {
             return 'thud';
         }
         return null;
@@ -224,20 +256,39 @@ export class Level {
             case '=':
                 gfx.draw('plank', x, y);
                 break;
-            case 'L':
-                gfx.draw(this.gates.green ? 'leaf' : 'leafGhost', x, y);
-                break;
-            case 'C': {
-                const v = tx % 2;
-                gfx.draw(this.gates.sky ? `cloud${v}` : `cloudGhost${v}`, x, y);
-                break;
-            }
             case '~':
                 gfx.draw(this.tile(tx, ty - 1) === '~' ? 'water' : 'waterTop', x, y);
                 break;
             case '^':
                 gfx.draw('spikes', x, y);
                 break;
+            default: {
+                const entry = this.legend[ch];
+                if (entry) {
+                    this.drawGated(gfx, entry, tx, x, y);
+                }
+            }
+        }
+    }
+
+    /** A color-gated tile: solid-looking when its color is on, a dotted ghost outline when it is off. */
+    drawGated(gfx, entry, tx, x, y) {
+        const on = !!this.gates[entry.gate];
+        switch (entry.look) {
+            case 'leaf':
+                gfx.draw(on ? 'leaf' : 'leafGhost', x, y);
+                break;
+            case 'cloud': {
+                const v = tx % 2;
+                gfx.draw(on ? `cloud${v}` : `cloudGhost${v}`, x, y);
+                break;
+            }
+            default: {
+                // spectrum tiles: drawn with stripe 0's slots, shifted to this stripe
+                const offset = (this.stripeIndex[entry.gate] ?? 0) * STRIPE_SHADES;
+                const base = entry.look === 'ledge' ? 'sLedge' : 'sBlock';
+                gfx.draw(on ? base : `${base}Ghost`, x, y, offset);
+            }
         }
     }
 

@@ -5,6 +5,10 @@
 // drained to grey. Every prism Josepho wakes up pours one group back in - grass, sky, flowers - and the
 // change sweeps across everything on screen at once, without redrawing a single pixel differently.
 //
+// Slots 1-63 are the shared world colors below. Slots 64-127 belong to whatever is on screen: a level puts its
+// spectrum stripes there (each stripe is its own color group that can be switched on and off), the world map
+// puts the small flags of all levels there. createPaletteSpec() describes one such arrangement.
+//
 // This file has no engine imports on purpose: it only does arithmetic on plain [r, g, b] numbers, so it
 // can be tested outside the browser. src/game.js copies the result into the live BLIT386 palette.
 
@@ -18,6 +22,7 @@ export const GROUP = {
     SPIRIT: 5, // Josepho, motes, prisms - always in color
 };
 export const GROUP_COUNT = 6;
+export const GROUP_NAMES = ['neutral', 'sky', 'earth', 'green', 'bloom', 'spirit'];
 
 // Slot numbers. Slot 0 is always transparent in BLIT386, so real colors start at 1.
 export const C = {
@@ -72,7 +77,16 @@ export const C = {
     CLOUD_SOLID: 62,
     WATER_FOAM: 63,
 };
-export const PALETTE_SIZE = 64;
+export const PALETTE_SIZE = 128;
+
+// Level spectrum stripes: 4 shades each (dark, base, light, glow), up to 8 stripes, in slots 64-95.
+// Sprites for stripe tiles are drawn with stripe 0's slots and shifted to stripe k with palette offset 4 * k.
+export const STRIPE0 = 64;
+export const STRIPE_SHADES = 4;
+export const MAX_STRIPES = 8;
+// World map: up to 6 flag colors for each of 10 levels, in slots 64-123.
+export const FLAG0 = 64;
+export const FLAG_COLORS = 6;
 
 // Static colors: [slot, group, hex]. Dynamic slots (sky, sun, water, spectrum, lantern) are computed below.
 const STATIC = [
@@ -117,7 +131,8 @@ const STATIC = [
 ];
 
 // Which group each slot belongs to (dynamic slots included).
-export const SLOT_GROUP = new Uint8Array(PALETTE_SIZE);
+const BASE_SLOT_GROUP = new Uint8Array(PALETTE_SIZE);
+const SLOT_GROUP = BASE_SLOT_GROUP;
 for (const [slot, group] of STATIC) {
     SLOT_GROUP[slot] = group;
 }
@@ -199,9 +214,9 @@ export function hsl(out, h, s, l) {
 /**
  * Everything the palette depends on. game.js owns one of these and changes it as the story moves.
  */
-export function createChromaState() {
+export function createChromaState(spec = DEFAULT_SPEC) {
     return {
-        sat: new Float32Array(GROUP_COUNT), // per-group saturation, 0 = grey, 1 = full color
+        sat: new Float32Array(spec.groupCount), // per-group saturation, 0 = grey, 1 = full color
         dawn: 0, // 0 = before sunrise, 1 = bright morning
         tick: 0, // frame counter for cycling slots
         flash: 0, // 0..1 mix toward white (a prism waking up)
@@ -216,19 +231,87 @@ const tmp = [0, 0, 0];
 const grey = [0, 0, 0];
 const rgb = [0, 0, 0];
 
+function shade(rgb, toward, t) {
+    return [lerp(rgb[0], toward[0], t), lerp(rgb[1], toward[1], t), lerp(rgb[2], toward[2], t)];
+}
+const BLACK_RGB = [18, 14, 30];
+
+/**
+ * Describes what the palette holds on one screen.
+ *   colors:  { DIRT: '#hex', ... } - replace shared world colors (by the names in C) for a level's look
+ *   sky:     three rows of six hex colors (pre-dawn, sunrise, morning) - a level's own sky
+ *   stripes: [{ id, color }] - the level's spectrum; each stripe becomes a color group named by its id
+ *   flags:   [[hex, ...], ...] - world map only: the flag colors of every level, groups 'flag1' ... 'flag10'
+ */
+export function createPaletteSpec({ colors = {}, sky = null, stripes = [], flags = [] } = {}) {
+    const slotGroup = new Uint8Array(BASE_SLOT_GROUP);
+    const groups = {};
+    GROUP_NAMES.forEach((name, i) => {
+        groups[name] = i;
+    });
+    let groupCount = GROUP_COUNT;
+    const fixed = new Map(); // slot -> [r, g, b] that replaces the computed color
+
+    for (const [name, hex] of Object.entries(colors)) {
+        if (C[name] === undefined) {
+            throw new Error(`Unknown palette color '${name}'`);
+        }
+        fixed.set(C[name], hexToRgb(hex));
+    }
+    if (stripes.length > MAX_STRIPES) {
+        throw new Error(`At most ${MAX_STRIPES} spectrum stripes`);
+    }
+    stripes.forEach((stripe, i) => {
+        const group = groupCount++;
+        groups[stripe.id] = group;
+        const base = hexToRgb(stripe.color);
+        const shades = [shade(base, BLACK_RGB, 0.4), base, shade(base, WHITE_RGB, 0.35), shade(base, WHITE_RGB, 0.7)];
+        shades.forEach((rgb, k) => {
+            const slot = STRIPE0 + i * STRIPE_SHADES + k;
+            fixed.set(slot, rgb);
+            slotGroup[slot] = group;
+        });
+    });
+    flags.forEach((colorsOfFlag, i) => {
+        const group = groupCount++;
+        groups[`flag${i + 1}`] = group;
+        colorsOfFlag.slice(0, FLAG_COLORS).forEach((hex, k) => {
+            const slot = FLAG0 + i * FLAG_COLORS + k;
+            fixed.set(slot, hexToRgb(hex));
+            slotGroup[slot] = group;
+        });
+    });
+    return {
+        slotGroup,
+        groups,
+        groupCount,
+        fixed,
+        skyKeys: sky ? sky.map((row) => row.map(hexToRgb)) : SKY_KEYS,
+        stripeIndex: Object.fromEntries(stripes.map((st, i) => [st.id, i])),
+    };
+}
+
 /**
  * Computes all slot colors into out (a Uint8Array of PALETTE_SIZE * 3 numbers).
  */
-export function computePalette(state, out) {
+export function computePalette(state, out, spec = DEFAULT_SPEC) {
     const dawn = Math.max(0, Math.min(1, state.dawn));
     const ambientT = Math.min(1, dawn * 1.4);
     const amb0 = lerp(AMBIENT_DAWN[0], 1, ambientT);
     const amb1 = lerp(AMBIENT_DAWN[1], 1, ambientT);
     const amb2 = lerp(AMBIENT_DAWN[2], 1, ambientT);
 
+    const slotGroup = spec.slotGroup;
     for (let slot = 1; slot < PALETTE_SIZE; slot++) {
-        baseColor(slot, state, dawn, rgb);
-        const group = SLOT_GROUP[slot];
+        const fixedRgb = spec.fixed.get(slot);
+        if (fixedRgb) {
+            rgb[0] = fixedRgb[0];
+            rgb[1] = fixedRgb[1];
+            rgb[2] = fixedRgb[2];
+        } else {
+            baseColor(slot, state, dawn, rgb, spec);
+        }
+        const group = slotGroup[slot];
 
         if (group === GROUP.EARTH || group === GROUP.GREEN || group === GROUP.BLOOM) {
             rgb[0] *= amb0;
@@ -264,10 +347,11 @@ function clamp255(v) {
     return v < 0 ? 0 : v > 255 ? 255 : Math.round(v);
 }
 
-function baseColor(slot, state, dawn, out) {
+function baseColor(slot, state, dawn, out, spec) {
     if (slot >= C.SKY0 && slot < C.SKY0 + 6) {
         const i = slot - C.SKY0;
-        return key3(out, SKY_KEYS[0][i], SKY_KEYS[1][i], SKY_KEYS[2][i], dawn);
+        const keys = spec.skyKeys;
+        return key3(out, keys[0][i], keys[1][i], keys[2][i], dawn);
     }
     if (slot >= C.WATER0 && slot < C.WATER0 + 4) {
         const phase = Math.floor(state.tick / 10);
@@ -301,8 +385,11 @@ function baseColor(slot, state, dawn, out) {
             return out;
         }
     }
-    out[0] = 255;
+    // a slot nobody uses on this screen
+    out[0] = 0;
     out[1] = 0;
-    out[2] = 255;
+    out[2] = 0;
     return out;
 }
+
+const DEFAULT_SPEC = createPaletteSpec();

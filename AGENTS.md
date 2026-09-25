@@ -140,10 +140,16 @@ touch this section.
 
 - Screen 192 x 108, tiles 8 x 8, 60 FPS. Positions of moving things are integers in subpixels (16 per pixel,
   `SUB` in `world.js`); every drawn coordinate is a whole pixel.
-- The palette has 64 slots (`colors.js`). Every slot belongs to a color group (SKY, EARTH, GREEN, BLOOM, SPIRIT,
-  NEUTRAL). The core mechanic is per-group saturation: the world starts grey and the prisms raise groups back to full
-  color. Palette slots are rewritten every frame in `Game.writePalette` - never recolor sprites by hand.
-- Color changes gameplay: `L` leaves need green, `C` clouds need sky, `b` bell springs need bloom (`level.gates`).
+- The palette has 128 slots (`colors.js`). Slots 1-63 are shared world colors; every slot belongs to a color group
+  (sky, earth, green, bloom, spirit, neutral). Slots 64-127 depend on the screen: a level's spectrum stripes (each
+  stripe its own group) or the world map's flags. `createPaletteSpec()` builds that arrangement; `Game.turnOn(names)`
+  switches groups on. The core mechanic: a group that is off is grey, and tiles gated on it have no volume.
+  Palette slots are rewritten every frame in `Game.writePalette` - never recolor sprites by hand.
+- Levels are data in `src/levels/` (format: `src/levels/README.md`). Gated tiles come from `BUILTIN_LEGEND` in
+  `world.js` (`L` green, `C` sky) and each level's `legend`. At the end of every level all groups turn on.
+- Flow: title -> story (new game) -> world map (`map.js`) -> level -> clear screen -> map. Progress is saved in
+  localStorage (`save.js`).
+- Before pushing: `npm run test:levels` (Node, engine test double in `tools/lib/`), then play it in the browser.
 - All art is text in `art-data.js`, packed into one atlas at startup (`SpriteSheet.fromIndexedPixels`). There is no
   sprite flip in `drawSprite`, so left-facing frames are baked as `name<`, glow outlines as `name~`.
 - The engine's system font is too tall for this screen; `font.js` is a 3 x 5 font with Czech diacritics. Draw text
@@ -153,4 +159,4 @@ touch this section.
   texts and docs, use they/them for Josepho.
 - The story of all ten levels, the mechanics per level and the rules for building them are in `docs/pribeh.md`.
 - Controls read raw keys (`BT.isKeyDown`) OR the default gamepad mapping (`BT.isDown`).
-- Next chapters: add `levelN.js` with the same shape as `LEVEL1` (map, signs, prisms).
+- Next levels: add `src/levels/levelN.js` with the same shape as `LEVEL1` and list it in `src/levels/index.js`.

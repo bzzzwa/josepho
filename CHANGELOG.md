@@ -2,6 +2,35 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+Phase 0: the ground for levels 2-10.
+
+### Added
+
+- World map of Lumen with all ten regions from the story. Finished levels raise their flag, the land regains color
+  after the first level, the next region unlocks and Josepho walks there. Regions without a level yet say so.
+- Progress is saved in the browser. The title screen offers Continue / New game (a new game asks to confirm).
+- Pause menu: continue, start the level again, back to the map, fullscreen.
+- A level in progress is saved at its start and at every lantern (prisms, motes, blocks, time). After closing or
+  reloading the page, Continue goes straight back to the last lantern; the map shows the level as in progress.
+- Levels are data files in `src/levels/` with their own spectrum (up to 8 color stripes, each switchable), their
+  own color-gated tiles, look and starting colors. The format is described in `src/levels/README.md`.
+- `npm run test:levels`: runs the game in Node, checks every level (map, texts, jumps out of safe reach), draws a
+  preview of the whole level and lets an automatic player finish it.
+
+### Changed
+
+- The palette has 128 colors (was 64); slots 64-127 hold the level's spectrum or the world map's flags.
+- Level 1 moved to `src/levels/level1.js`. It plays exactly as before (checked frame by frame).
+
+### Fixed
+
+- The world map was drawn shifted after leaving a level, and was an empty blue screen after finishing one. BLIT386
+  starts every frame with the camera last set by `cameraSet()` (`cameraReset()` does not clear it); the game now
+  resets the camera at the start of every frame. The level tests check this.
+- A screen shake at the left edge of a level drew a wrong column of the distant mountains.
+
 ## 0.2.0 - 2026-09-25
 
 Josepho on phones and tablets.

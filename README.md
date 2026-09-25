@@ -50,12 +50,25 @@ checkpoints.
 
 Everything lives in `src/`, and nothing is loaded from files - all art and sound are generated at startup.
 
-- `level1.js` - the map as plain text (a legend is at the top) plus the sign texts. Move a `?`, add an `e`, save.
+- `levels/` - one file per level (the map as plain text, signs, prisms, its own colors), the world map data, and
+  `levels/README.md` describing the level format. The story and plan for all ten levels: `docs/pribeh.md`.
 - `art-data.js` - every sprite as rows of letters; each letter is a palette slot.
 - `colors.js` - the palette and the grey-to-color system. Try other hex colors in `STATIC` or `SKY_KEYS`.
 - `actors.js` - `PHYS` at the top holds jump height, speeds and flutter length.
 - `sound.js` - synthesized sounds and the four-layer music.
-- `game.js` - the rules, the story texts, the HUD and the screens.
+- `game.js` - the rules, the story texts, the HUD and the screens; `map.js` is the world map.
+
+## Test the levels
+
+```
+npm run test:levels            # all levels
+npm run test:levels -- 2       # only level 2
+npm run test:levels -- --fast  # skip the automatic player
+```
+
+This runs the game in Node without a browser. It walks through the menus, checks every level (map, texts,
+jumps out of safe reach), draws a preview of each whole level into `tools/out/levelN.png`, and lets an automatic
+player try to finish it. Run it, and play the level yourself, before you push.
 
 More about hot reload: `docs/hot-reload.md`.
 

@@ -9,7 +9,10 @@
 //   colors.js      palette slots and the chroma system (grey <-> color, dawn light)
 //   art-data.js    all pixel art as editable text, packed into one sprite atlas
 //   font.js        a 3 x 5 font with Czech diacritics
-//   level1.js      the chapter's map, signs and prisms
+//   levels/        the levels (one file each), the world map data, and a README on the level format
+//   map.js         the world map screen between levels
+//   menu.js        the small menus on the title and pause screens
+//   save.js        remembers finished levels in the browser
 //   world.js       tiles, collisions, tile drawing
 //   actors.js      Josepho, creatures, objects
 //   background.js  parallax sky, sun and hills
@@ -39,11 +42,15 @@ import {
     Thornback,
 } from './actors.js';
 import { Background } from './background.js';
-import { C, computePalette, createChromaState, GROUP, PALETTE_SIZE } from './colors.js';
+import { C, computePalette, createChromaState, createPaletteSpec, PALETTE_SIZE } from './colors.js';
 import { fullscreen } from './fullscreen.js';
 import { Fx } from './fx.js';
 import { gfx } from './gfx.js';
-import { LEVEL1 } from './level1.js';
+import { LEVELS, levelByNumber } from './levels/index.js';
+import { WORLD } from './levels/worldmap.js';
+import { WorldMap } from './map.js';
+import { Menu } from './menu.js';
+import { emptySave, hasProgress, loadSave, recordClear, writeSave } from './save.js';
 import { Sound } from './sound.js';
 import { TouchControls } from './touch.js';
 import { Level, SUB, TILE } from './world.js';
@@ -61,10 +68,6 @@ const STORY = [
     'ÚSVIT ZAČÍNÁ. PROBUĎ HRANOLY A VRAŤ SVĚTU SPEKTRUM.',
 ];
 
-const ENDING = [
-    'HRANOL ÚSVITU ZÁŘÍ A LUMEN SE ZNOVU PROBOUZÍ.',
-    'NA SEVERU ALE TŘÍDIČ DÁL DĚLÍ SVĚT DO DVOU KRABIC...',
-];
 
 export class Game {
     configure() {
@@ -79,17 +82,20 @@ export class Game {
             preferredOrientation: 'landscape',
             // let the canvas grow to fill big and fullscreen displays (the default stops at 960 x 720)
             maxCanvasSize: new Vector2i(3840, 2160),
+            // no engine stats overlay: its toggle icon sat in the bottom-left corner, under the touch arrows
+            // (set to true while measuring performance; the ` key then shows the stats)
+            isOverlayEnabled: false,
         };
     }
 
     async init() {
         gfx.init();
-        this.chroma = createChromaState();
-        this.satTarget = new Float32Array(this.chroma.sat.length);
         this.paletteBuf = new Uint8Array(PALETTE_SIZE * 3);
-        this.lastBuf = new Uint8Array(PALETTE_SIZE * 3).fill(1);
+        this.lastBuf = new Uint8Array(PALETTE_SIZE * 3);
         this.scratch = new Color32(0, 0, 0, 255);
         this.palette = BT.paletteCreate(PALETTE_SIZE);
+        this.save = loadSave();
+        this.useSpec(createPaletteSpec());
         this.resetChroma();
         this.writePalette(this.palette, true);
         BT.paletteSet(this.palette);
@@ -104,9 +110,7 @@ export class Game {
 
         this.tick = 0;
         this.prevKeys = {};
-        this.buildLevel();
-        this.state = 'title';
-        this.stateTime = 0;
+        this.openTitle();
         return true;
     }
 
@@ -116,19 +120,55 @@ export class Game {
 
     // ------------------------------------------------------------------ setup
 
-    resetChroma() {
+    /** Switches to another palette arrangement (a level's, or the world map's). */
+    useSpec(spec) {
+        this.spec = spec;
+        this.chroma = createChromaState(spec);
+        this.satTarget = new Float32Array(spec.groupCount);
+        this.paletteDirty = true;
+    }
+
+    /** Index of a color group by name ('green', or a stripe id); -1 if this screen has no such group. */
+    groupIndex(name) {
+        return this.spec.groups[name] ?? -1;
+    }
+
+    /** Turns color groups on: their tiles get volume at once, their color fades in (instantly if asked). */
+    turnOn(names, instant = false) {
+        for (const name of names) {
+            const g = this.groupIndex(name);
+            if (g < 0) {
+                continue;
+            }
+            this.satTarget[g] = 1;
+            if (instant) {
+                this.chroma.sat[g] = 1;
+            }
+            if (this.level) {
+                this.level.gates[name] = true;
+            }
+        }
+    }
+
+    /** Every group grey except Josepho's own colors, plus whatever the level starts with. */
+    resetChroma(startOn = []) {
         this.chroma.sat.fill(0);
-        this.chroma.sat[GROUP.SPIRIT] = 1;
         this.satTarget.fill(0);
-        this.satTarget[GROUP.SPIRIT] = 1;
+        this.turnOn(['spirit', ...startOn], true);
         this.chroma.dawn = 0.06;
         this.chroma.flash = 0;
         this.chroma.drain = 0;
         this.chroma.fade = 0;
     }
 
-    buildLevel() {
-        this.level = new Level(LEVEL1);
+    /** Builds a level from its definition in src/levels/ (the world, creatures, objects and palette). */
+    loadLevel(number) {
+        const def = levelByNumber(number) ?? LEVELS[0];
+        this.def = def;
+        this.levelNumber = def.number;
+        this.level = null;
+        this.useSpec(createPaletteSpec({ colors: def.theme?.colors, sky: def.theme?.sky, stripes: def.spectrum ?? [] }));
+        this.level = new Level(def);
         this.background = new Background(this.level.pw);
         this.motes = [];
         this.prisms = [];
@@ -145,11 +185,17 @@ export class Game {
                     start = s;
                     break;
                 case 'o':
-                    this.motes.push(new Mote(s.tx, s.ty));
+                    this.motes.push(Object.assign(new Mote(s.tx, s.ty), { id: this.motes.length }));
                     break;
                 case '1':
                 case '2':
                 case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
                     this.prisms.push(new Prism(s.tx, s.ty, Number(s.ch) - 1));
                     break;
                 case 'F':
@@ -178,6 +224,7 @@ export class Game {
         this.popMotes = [];
         this.petals = [];
         this.moteCount = 0;
+        this.takenMotes = new Set();
         this.moteChain = 0;
         this.moteChainTimer = 0;
         this.maxX = 0;
@@ -222,6 +269,25 @@ export class Game {
             run: k('ShiftLeft', 'ShiftRight', 'KeyX', 'KeyJ', 'ControlLeft', 'ControlRight') || b(BT.BTN_B) || b(BT.BTN_X) || t.run,
             start: k('Enter', 'Escape', 'KeyP') || b(BT.BTN_START),
         };
+        // menu input: its own keys, because Up is also a jump key during play
+        const ui = {
+            up: k('ArrowUp', 'KeyW') || b(BT.BTN_UP),
+            down: k('ArrowDown', 'KeyS') || b(BT.BTN_DOWN),
+            left: k('ArrowLeft', 'KeyA') || b(BT.BTN_LEFT),
+            right: k('ArrowRight', 'KeyD') || b(BT.BTN_RIGHT),
+            confirm: k('Space', 'Enter', 'KeyZ', 'KeyK') || b(BT.BTN_A),
+            back: k('Escape') || b(BT.BTN_B),
+        };
+        const prevUi = this.prevUi ?? {};
+        this.ui = {
+            upPressed: ui.up && !prevUi.up,
+            downPressed: ui.down && !prevUi.down,
+            leftPressed: ui.left && !prevUi.left,
+            rightPressed: ui.right && !prevUi.right,
+            confirmPressed: ui.confirm && !prevUi.confirm,
+            backPressed: ui.back && !prevUi.back,
+        };
+        this.prevUi = ui;
         const inp = {
             ...now,
             jumpPressed: now.jump && !this.prevKeys.jump,
@@ -238,9 +304,9 @@ export class Game {
         return this.touch.active && typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
     }
 
-    /** The fullscreen button's tap area on the title and pause screens. */
+    /** The fullscreen button's tap area on the title screen. */
     fullscreenButton() {
-        return this.state === 'title' ? { x: 172, y: 0, w: 20, h: 14 } : { x: 40, y: 64, w: 112, h: 16 };
+        return { x: 172, y: 0, w: 20, h: 14 };
     }
 
     /** Handles a tap on the fullscreen button; returns true if the tap was used. */
@@ -271,6 +337,9 @@ export class Game {
                 break;
             case 'story':
                 this.updateStory(inp);
+                break;
+            case 'map':
+                this.updateMap(inp);
                 break;
             case 'play':
                 this.updatePlay(inp);
@@ -303,16 +372,191 @@ export class Game {
         if (inp.tap && this.handleFullscreenTap()) {
             return;
         }
-        if ((inp.jumpPressed || inp.startPressed || inp.tap) && this.stateTime > 20) {
-            if (inp.tap && this.touch.active) {
-                // on phones, starting the game also goes fullscreen
-                fullscreen.requestEnter();
+        if (this.stateTime <= 20) {
+            return;
+        }
+        let choice = null;
+        if (this.titleMenu) {
+            choice = this.titleMenu.update(this.ui, this.touch);
+        } else if (inp.jumpPressed || inp.startPressed || inp.tap) {
+            choice = 'new';
+        }
+        if (!choice) {
+            return;
+        }
+        if (inp.tap && this.touch.active) {
+            // on phones, starting the game also goes fullscreen
+            fullscreen.requestEnter();
+        }
+        if (choice === 'continue') {
+            this.sound.play('lantern');
+            const p = this.save.inProgress;
+            if (p && !p.left && levelByNumber(p.level)) {
+                // straight back into the level that was being played, at its last lantern
+                this.startLevel(p.level, true);
+            } else {
+                this.openMap();
             }
+        } else if (choice === 'new') {
+            if (hasProgress(this.save) && !this.confirmNew) {
+                // one more press to confirm wiping the progress
+                this.confirmNew = true;
+                this.titleMenu.items[1].label = 'OPRAVDU? SMAŽE POSTUP';
+                this.sound.play('text');
+                return;
+            }
+            this.save = emptySave();
+            writeSave(this.save);
             this.sound.play('lantern');
             this.storyPage = 0;
             this.typed = 0;
             this.setState('story');
         }
+    }
+
+    openTitle() {
+        this.loadLevel(1);
+        this.resetChroma();
+        this.fx.clear();
+        this.confirmNew = false;
+        this.titleMenu = hasProgress(this.save)
+            ? new Menu([
+                  { label: 'POKRAČOVAT', id: 'continue' },
+                  { label: 'NOVÁ HRA', id: 'new' },
+              ])
+            : null;
+        this.setState('title');
+    }
+
+    /** The world map. After a finished level, Josepho walks on to the next node by itself. */
+    openMap(justCompleted = null) {
+        this.level = null;
+        this.useSpec(createPaletteSpec({ flags: WORLD.nodes.map((n) => n.flag) }));
+        this.chroma.dawn = 1;
+        const doneCount = Object.keys(this.save.done).length;
+        const on = ['spirit'];
+        if (doneCount > 0) {
+            // the first finished level brings the land back
+            on.push('sky', 'earth', 'green', 'bloom');
+        }
+        for (const node of WORLD.nodes) {
+            if (this.save.done[node.number] && node.number !== justCompleted) {
+                on.push(`flag${node.number}`);
+            }
+        }
+        this.turnOn(on, true);
+        if (justCompleted !== null) {
+            // the flag of the level just finished colors in slowly
+            this.turnOn([`flag${justCompleted}`]);
+            if (justCompleted === 1) {
+                for (const g of ['sky', 'earth', 'green', 'bloom']) {
+                    this.chroma.sat[this.groupIndex(g)] = 0;
+                }
+            }
+        }
+        this.map = new WorldMap(WORLD, this.save, (n) => !!levelByNumber(n));
+        if (justCompleted !== null && justCompleted < this.save.unlocked) {
+            this.map.walkTo(justCompleted);
+        }
+        this.sound.layers = Math.min(4, 1 + doneCount);
+        this.sound.musicOn = true;
+        this.fx.clear();
+        this.chroma.fade = 1;
+        this.fadeIn = true;
+        this.setState('map');
+    }
+
+    updateMap(inp) {
+        if (this.fadeIn) {
+            this.chroma.fade = Math.max(0, this.chroma.fade - 0.05);
+            this.fadeIn = this.chroma.fade > 0;
+        }
+        const res = this.map.update(inp, this.ui, this.touch);
+        const current = this.map.at + 1;
+        if (current !== this.save.current && !this.map.moving) {
+            this.save.current = current;
+            writeSave(this.save);
+        }
+        if (res?.play) {
+            this.sound.play('lantern');
+            // a level left half-way continues from its last lantern
+            this.startLevel(res.play, true);
+        } else if (res?.back) {
+            this.openTitle();
+        }
+    }
+
+    /**
+     * Starts a level. With resume, and a saved game for this level, it continues from the last lantern with
+     * the prisms, motes and blocks as they were; otherwise it starts from the beginning.
+     */
+    startLevel(number, resume = false) {
+        this.loadLevel(number);
+        this.resetChroma(this.def.startOn ?? []);
+        const saved = this.save.inProgress;
+        if (resume && saved?.level === this.levelNumber) {
+            this.restoreProgress(saved);
+        }
+        this.fx.clear();
+        this.chroma.fade = 1;
+        this.fadeIn = true;
+        this.banner = { text: `${this.def.number}  ${this.def.name}`, t: 0 };
+        this.setState('play');
+        this.saveProgress();
+    }
+
+    /** Remembers where Josepho is in the level (the last lantern) and what has changed since the start. */
+    saveProgress() {
+        this.save.inProgress = {
+            level: this.levelNumber,
+            checkpoint: this.checkpoint,
+            prisms: this.prisms.filter((p) => p.awake).map((p) => p.index),
+            motes: [...this.takenMotes],
+            tiles: [...this.level.changes],
+            moteCount: this.moteCount,
+            frames: this.frames,
+            maxX: this.maxX,
+        };
+        writeSave(this.save);
+    }
+
+    restoreProgress(p) {
+        for (const index of p.prisms ?? []) {
+            const prism = this.prisms.find((pr) => pr.index === index);
+            if (prism) {
+                prism.awake = true;
+                this.turnOn(this.def.prisms?.[index]?.turnsOn ?? [], true);
+                this.sound.layers = Math.min(4, this.sound.layers + 1);
+            }
+        }
+        this.takenMotes = new Set(p.motes ?? []);
+        this.motes = this.motes.filter((m) => !this.takenMotes.has(m.id));
+        for (const [key, ch] of p.tiles ?? []) {
+            const [tx, ty] = key.split(',').map(Number);
+            this.level.set(tx, ty, ch);
+            this.level.changes.set(key, ch);
+        }
+        this.moteCount = p.moteCount ?? 0;
+        this.frames = p.frames ?? 0;
+        this.maxX = p.maxX ?? 0;
+        if (p.checkpoint) {
+            this.checkpoint = p.checkpoint;
+            for (const l of this.lanterns) {
+                l.lit = l.tx <= p.checkpoint.tx;
+            }
+            this.player.reset(p.checkpoint.tx * TILE + 1, (p.checkpoint.ty + 1) * TILE - 10);
+        }
+        // the sunrise is as far along as Josepho got
+        const progress = this.maxX / Math.max(1, this.level.pw - SCREEN_W);
+        this.chroma.dawn = 0.06 + Math.min(1, progress) * 0.9;
+        this.snapCamera();
+    }
+
+    /** Remembers the finished level and unlocks the next one. */
+    completeLevel() {
+        const result = { motes: this.moteCount, total: this.totalMotes, frames: this.frames };
+        recordClear(this.save, this.levelNumber, result, WORLD.nodes.length);
+        writeSave(this.save);
     }
 
     updateStory(inp) {
@@ -324,7 +568,7 @@ export class Game {
             }
         }
         if (inp.startPressed) {
-            this.startPlay();
+            this.openMap();
             return;
         }
         if (inp.jumpPressed || inp.tap) {
@@ -334,18 +578,9 @@ export class Game {
                 this.storyPage++;
                 this.typed = 0;
             } else {
-                this.startPlay();
+                this.openMap();
             }
         }
-    }
-
-    startPlay() {
-        this.buildLevel();
-        this.resetChroma();
-        this.fx.clear();
-        this.chroma.fade = 1;
-        this.fadeIn = true;
-        this.setState('play');
     }
 
     updatePlay(inp) {
@@ -356,22 +591,31 @@ export class Game {
             }
         }
         if (this.isPortrait() && this.finaleTime < 0) {
-            this.paused = true;
-            return;
-        }
-        if (this.paused && inp.tap) {
-            // on the pause screen: the fullscreen button, or tap anywhere else to continue
-            if (!this.handleFullscreenTap()) {
-                this.paused = false;
-                this.sound.play('text');
+            if (!this.paused) {
+                this.setPaused(true);
             }
             return;
         }
         if (inp.startPressed && this.finaleTime < 0 && !this.player.dead) {
-            this.paused = !this.paused;
-            this.sound.play('text');
+            this.setPaused(!this.paused);
+            return;
         }
         if (this.paused) {
+            const choice = this.pauseMenu.update(this.ui, this.touch);
+            if (choice === 'resume') {
+                this.setPaused(false);
+            } else if (choice === 'map') {
+                if (this.save.inProgress?.level === this.levelNumber) {
+                    // left on purpose: "Continue" on the title then opens the map, the map resumes the level
+                    this.save.inProgress.left = true;
+                    writeSave(this.save);
+                }
+                this.openMap();
+            } else if (choice === 'restart') {
+                this.startLevel(this.levelNumber);
+            } else if (choice === 'fullscreen') {
+                fullscreen.request();
+            }
             return;
         }
         this.frames++;
@@ -386,9 +630,7 @@ export class Game {
         if (this.freeze > 0) {
             this.freeze--;
             if (this.freeze === 0 && this.pendingSat) {
-                for (const g of this.pendingSat) {
-                    this.satTarget[g] = 1;
-                }
+                this.turnOn(this.pendingSat);
                 this.pendingSat = null;
             }
             return;
@@ -410,6 +652,22 @@ export class Game {
         this.maxX = Math.max(this.maxX, p.px);
         if (this.finaleTime >= 0) {
             this.updateFinale();
+        }
+    }
+
+    setPaused(paused) {
+        this.paused = paused;
+        this.sound.play('text');
+        if (paused) {
+            const items = [
+                { label: 'POKRAČOVAT', id: 'resume' },
+                { label: 'ZNOVU OD ZAČÁTKU', id: 'restart' },
+                { label: 'ZPĚT NA MAPU', id: 'map' },
+            ];
+            if (fullscreen.isSupported) {
+                items.push({ label: fullscreen.isOn ? 'ZRUŠIT CELOU OBRAZOVKU' : 'CELÁ OBRAZOVKA', id: 'fullscreen' });
+            }
+            this.pauseMenu = new Menu(items);
         }
     }
 
@@ -460,6 +718,7 @@ export class Game {
         for (const m of this.motes) {
             if (!m.taken && m.hits(p)) {
                 m.taken = true;
+                this.takenMotes.add(m.id);
                 this.collectMote(m.x + 3, m.y + 3);
             }
         }
@@ -495,6 +754,7 @@ export class Game {
             if (!l.lit && l.hits(p)) {
                 l.lit = true;
                 this.checkpoint = { tx: l.tx, ty: l.ty };
+                this.saveProgress();
                 this.sound.play('lantern');
                 this.fx.burst(l.x + 3, l.bottom - 11, 16, [C.LANTERN, C.MOTE_HI, C.MOTE], 1);
             }
@@ -554,7 +814,7 @@ export class Game {
         const cols = [Math.floor(p.cx / TILE), Math.floor(p.px / TILE), Math.floor((p.px + p.w - 1) / TILE)];
         let tx = cols[0];
         for (const c of cols) {
-            if ('#RB?GU'.includes(level.tile(c, ty))) {
+            if (level.isSolidTile(level.tile(c, ty))) {
                 tx = c;
                 break;
             }
@@ -594,9 +854,12 @@ export class Game {
 
     wakePrism(pr) {
         pr.awake = true;
-        const info = LEVEL1.prisms[pr.index];
-        this.level.gates[info.gate] = true;
-        this.pendingSat = info.groups.map((g) => GROUP[g]);
+        const info = this.def.prisms?.[pr.index] ?? { turnsOn: [], banner: '' };
+        // volume comes at once, the color after the short freeze
+        for (const name of info.turnsOn) {
+            this.level.gates[name] = true;
+        }
+        this.pendingSat = info.turnsOn;
         this.freeze = 36;
         if (!this.fx.reducedMotion) {
             this.chroma.flash = 0.85;
@@ -610,7 +873,9 @@ export class Game {
         this.sound.play('prism');
         this.sound.arpeggio([62, 66, 69, 74, 78, 81, 86], 4, 'bell', 1);
         this.sound.layers = Math.min(4, this.sound.layers + 1);
-        this.banner = { text: info.banner, t: 0 };
+        if (info.banner) {
+            this.banner = { text: info.banner, t: 0 };
+        }
     }
 
     startFinale() {
@@ -619,8 +884,8 @@ export class Game {
         this.player.vx = 0;
         this.finaleTime = 0;
         this.freeze = 40;
-        this.satTarget.fill(1);
-        this.level.gates.green = this.level.gates.sky = this.level.gates.bloom = true;
+        // the end of every level: the whole palette on
+        this.turnOn(Object.keys(this.spec.groups));
         if (!this.fx.reducedMotion) {
             this.chroma.flash = 1;
         }
@@ -648,6 +913,7 @@ export class Game {
         if (t > 260) {
             this.chroma.fade = Math.min(1, this.chroma.fade + 0.03);
             if (this.chroma.fade >= 1) {
+                this.completeLevel();
                 this.setState('clear');
                 this.chroma.fade = 0;
             }
@@ -725,10 +991,7 @@ export class Game {
             this.fx.sparks(20 + Math.random() * 150, 20 + Math.random() * 30, 16, 1.2);
         }
         if (this.stateTime > 60 && (inp.jumpPressed || inp.startPressed || inp.tap)) {
-            this.buildLevel();
-            this.resetChroma();
-            this.fx.clear();
-            this.setState('title');
+            this.openMap(this.levelNumber);
         }
     }
 
@@ -751,7 +1014,11 @@ export class Game {
     }
 
     writePalette(pal, force) {
-        computePalette(this.chroma, this.paletteBuf);
+        if (this.paletteDirty) {
+            force = true;
+            this.paletteDirty = false;
+        }
+        computePalette(this.chroma, this.paletteBuf, this.spec);
         const buf = this.paletteBuf;
         for (let slot = 1; slot < PALETTE_SIZE; slot++) {
             const o = slot * 3;
@@ -767,6 +1034,10 @@ export class Game {
     // ------------------------------------------------------------------ render
 
     render() {
+        // BLIT386 starts every frame with the camera last passed to cameraSet() - cameraReset() does not clear
+        // that - so each frame begins from a clean camera. Without this the world map inherited the level's
+        // camera and was drawn shifted (or entirely off screen after finishing a level).
+        BT.cameraReset();
         switch (this.state) {
             case 'title':
                 this.renderWorld(false);
@@ -775,6 +1046,9 @@ export class Game {
             case 'story':
                 this.renderWorld(false);
                 this.renderStory();
+                break;
+            case 'map':
+                this.map.render(gfx, this.touch.active);
                 break;
             case 'play':
                 this.renderWorld(true);
@@ -806,10 +1080,10 @@ export class Game {
 
     /** The sign text, with a touch version where the keyboard one would not make sense. */
     signText(index) {
-        if (this.touch.active && LEVEL1.touchSigns?.[index]) {
-            return LEVEL1.touchSigns[index];
+        if (this.touch.active && this.def.touchSigns?.[index]) {
+            return this.def.touchSigns[index];
         }
-        return LEVEL1.signs[index] ?? '';
+        return this.def.signs?.[index] ?? '';
     }
 
     renderWorld(withActors) {
@@ -916,19 +1190,14 @@ export class Game {
             this.touch.render(gfx);
         }
 
-        if (this.paused) {
+        if (this.paused && this.pauseMenu) {
             this.dim();
-            gfx.rect(30, 30, SCREEN_W - 60, 52, C.INK);
-            gfx.frame(30, 30, SCREEN_W - 60, 52, C.UI_DIM);
-            gfx.textCentered('PAUZA', SCREEN_W / 2, 40, C.WHITE);
-            gfx.textCentered(this.touch.active ? 'KLEPNI PRO POKRAČOVÁNÍ' : 'ENTER POKRAČUJE', SCREEN_W / 2, 52, C.UI_DIM);
-            if (fullscreen.isSupported) {
-                const label = fullscreen.isOn ? 'ZRUŠIT CELOU OBRAZOVKU' : 'CELÁ OBRAZOVKA';
-                const w = gfx.textWidth(label) + 13;
-                const x = Math.round((SCREEN_W - w) / 2);
-                gfx.tint('tbFull', x, 69, C.MOTE);
-                gfx.text(label, x + 13, 70, C.MOTE);
-            }
+            const h = 20 + this.pauseMenu.items.length * 11;
+            const top = Math.round((SCREEN_H - h) / 2);
+            gfx.rect(28, top, SCREEN_W - 56, h, C.INK);
+            gfx.frame(28, top, SCREEN_W - 56, h, C.UI_DIM);
+            gfx.textCentered('PAUZA', SCREEN_W / 2, top + 5, C.WHITE);
+            this.pauseMenu.render(gfx, SCREEN_W / 2, top + 17, Math.floor(this.tick / 20) % 2 === 0);
         }
     }
 
@@ -954,8 +1223,11 @@ export class Game {
         for (let i = 0; i < title.length; i++) {
             gfx.bigText(title[i], x + i * 4 * scale, 22 + wave(i), scale, () => C.SPEC0 + ((i + Math.floor(this.tick / 10)) % 6));
         }
-        gfx.textCentered('KAPITOLA 1: SVÍTÁNÍ', SCREEN_W / 2, 44, C.WHITE);
-        if (Math.floor(this.tick / 30) % 2 === 0) {
+        gfx.textCentered('SVĚT, KTERÝ ZTRATIL BARVY', SCREEN_W / 2, 44, C.WHITE);
+        if (this.titleMenu) {
+            gfx.rect(44, 51, SCREEN_W - 88, 24, C.INK);
+            this.titleMenu.render(gfx, SCREEN_W / 2, 56, Math.floor(this.tick / 20) % 2 === 0);
+        } else if (Math.floor(this.tick / 30) % 2 === 0) {
             gfx.textCentered(this.touch.active ? 'KLEPNI PRO START' : 'STISKNI MEZERNÍK', SCREEN_W / 2, 100, C.MOTE);
         }
         if (fullscreen.isSupported) {
@@ -993,9 +1265,9 @@ export class Game {
         this.dim();
         gfx.rect(8, 5, SCREEN_W - 16, 98, C.INK);
         gfx.frame(8, 5, SCREEN_W - 16, 98, C.SPEC0 + (Math.floor(this.tick / 8) % 6));
-        gfx.textCentered('KAPITOLA 1 DOKONČENA', SCREEN_W / 2, 13, C.MOTE);
+        gfx.textCentered(`${this.def.number}  ${this.def.name}`, SCREEN_W / 2, 13, C.MOTE);
         let y = 29;
-        for (const line of ENDING) {
+        for (const line of this.def.clearText ?? []) {
             for (const l of gfx.wrap(line, SCREEN_W - 32)) {
                 gfx.textCentered(l, SCREEN_W / 2, y, C.WHITE);
                 y += gfx.lineHeight;
@@ -1007,7 +1279,7 @@ export class Game {
         gfx.textCentered(`JISKRY ${this.moteCount}/${this.totalMotes}    ČAS ${time}`, SCREEN_W / 2, 72, C.GHOST);
         gfx.draw(this.tick % 40 < 20 ? 'j.happy' : 'j.idle0', 91, 79);
         if (this.stateTime > 60 && Math.floor(this.tick / 30) % 2 === 0) {
-            gfx.textCentered(this.touch.active ? 'KLEPNI PRO NÁVRAT' : 'STISKNI MEZERNÍK', SCREEN_W / 2, 95, C.UI_DIM);
+            gfx.textCentered(this.touch.active ? 'KLEPNI - NA MAPU' : 'MEZERNÍK - NA MAPU', SCREEN_W / 2, 95, C.UI_DIM);
         }
     }
 }

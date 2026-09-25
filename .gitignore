@@ -2,3 +2,5 @@ node_modules/
 dist/
 .DS_Store
 *.log
+# screenshots and level previews from npm run test:levels
+tools/out/

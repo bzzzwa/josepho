@@ -12,6 +12,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:levels": "node --import ./tools/lib/register-mock.mjs tools/test-levels.mjs",
     "format": "biome format --write . && prettier --write \"**/*.{md,mdx,mdc,yml,yaml}\"",
     "format:check": "biome format . && prettier --check \"**/*.{md,mdx,mdc,yml,yaml}\"",
     "lint": "biome lint .",

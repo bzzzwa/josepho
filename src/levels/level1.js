@@ -1,4 +1,5 @@
-// level1.js - Chapter 1, "Svitani" (Dawn). The map is plain text: edit a character, save, and play.
+// level1.js - Level 1, "Svitani" (Dawn). The map is plain text: edit a character, save, and play.
+// The shape of a level file is described in src/levels/README.md.
 //
 // Legend
 //   .  air               #  earth with grass     R  rock           B  stone brick
@@ -14,8 +15,8 @@
 // Rows are 8 pixels tall; the world is 14 rows high and 230 columns wide.
 
 export const LEVEL1 = {
+    number: 1,
     name: 'SVÍTÁNÍ',
-    number: '1-1',
     map: [
         '......................................................................................................................................................................................................................................',
         '......................................................................................................................................................................................................................................',
@@ -45,13 +46,17 @@ export const LEVEL1 = {
 
     // Touch-screen versions of signs that talk about keys (by sign index). The others are shown as they are.
     touchSigns: {
-        0: '< > CHŮZE. KDYŽ SMĚR DRŽÍŠ DÉLE, JOSEPHO SE ROZBĚHNE.\nKRUH VPRAVO JE SKOK. ČÍM DÉLE HO DRŽÍŠ, TÍM VÝŠ.',
+        0: '< > CHŮZE. DRŽ SMĚR A JOSEPHO SE ROZBĚHNE.\nKRUH VPRAVO SKÁČE. DRŽ HO A VYSKOČÍŠ VÝŠ.',
     },
 
-    // What each small prism gives back, in the order 1, 2, 3.
+    // What each small prism switches on, in the order 1, 2, 3. Color groups: sky, earth, green, bloom, or the
+    // ids of this level's spectrum stripes.
     prisms: [
-        { groups: ['GREEN', 'EARTH'], gate: 'green', banner: 'VRACÍ SE ZELEŇ' },
-        { groups: ['SKY'], gate: 'sky', banner: 'VRACÍ SE NEBE' },
-        { groups: ['BLOOM'], gate: 'bloom', banner: 'VRACEJÍ SE KVĚTY' },
+        { turnsOn: ['green', 'earth'], banner: 'VRACÍ SE ZELEŇ' },
+        { turnsOn: ['sky'], banner: 'VRACÍ SE NEBE' },
+        { turnsOn: ['bloom'], banner: 'VRACEJÍ SE KVĚTY' },
     ],
+
+    // Shown on the level-clear screen.
+    clearText: ['HRANOL ÚSVITU ZÁŘÍ A LUMEN SE ZNOVU PROBOUZÍ.', 'NA SEVERU ALE TŘÍDIČ DÁL DĚLÍ SVĚT DO DVOU KRABIC...'],
 };

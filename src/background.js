@@ -103,7 +103,8 @@ export class Background {
         // Far mountains.
         const fo = Math.floor(camX * FAR_SPEED);
         for (let sx2 = 0; sx2 < SCREEN_W; sx2++) {
-            const i = sx2 + fo;
+            // clamped: a screen shake can push the camera a pixel past either end
+            const i = Math.max(0, Math.min(this.far.length - 1, sx2 + fo));
             const top = this.far[i];
             gfx.line(sx2, top, sx2, SCREEN_H - 1, C.FAR);
             if (this.far[i + 1] > top || this.far[i - 1] > top + 1) {
@@ -117,7 +118,7 @@ export class Background {
         // Mid hills.
         const mo = Math.floor(camX * MID_SPEED);
         for (let sx2 = 0; sx2 < SCREEN_W; sx2++) {
-            const i = sx2 + mo;
+            const i = Math.max(0, Math.min(this.mid.length - 1, sx2 + mo));
             const top = this.mid[i];
             gfx.line(sx2, top, sx2, SCREEN_H - 1, C.MID);
             if (this.mid[i + 1] > top) {
