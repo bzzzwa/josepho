@@ -2,7 +2,9 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.2.0 - 2026-09-25
+
+Josepho on phones and tablets.
 
 ### Added
 
@@ -13,6 +15,7 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
 - "Add to Home Screen" support (web manifest, icon), which is the fullscreen option on iPhone.
 - A "turn your device sideways" screen when a phone is held upright; the game pauses meanwhile.
 - Touch versions of the texts that mention keys.
+- The story and plan for all ten levels: `docs/pribeh.md` (Czech).
 
 ### Fixed
 

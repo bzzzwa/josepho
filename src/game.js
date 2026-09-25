@@ -52,7 +52,7 @@ const SCREEN_W = 192;
 const SCREEN_H = 108;
 
 // Keep in step with "version" in package.json and CHANGELOG.md.
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';
 
 const STORY = [
     'KDYSI ZÁŘIL SVĚT LUMEN VŠEMI BARVAMI.',

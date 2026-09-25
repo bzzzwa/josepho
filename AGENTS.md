@@ -148,7 +148,9 @@ touch this section.
   sprite flip in `drawSprite`, so left-facing frames are baked as `name<`, glow outlines as `name~`.
 - The engine's system font is too tall for this screen; `font.js` is a 3 x 5 font with Czech diacritics. Draw text
   only through `gfx.text`.
-- Story and signs are Czech and must stay gender-neutral for Josepho (nonbinary): present tense, no past-tense verb
-  endings or gendered adjectives about Josepho; address the player in the imperative.
+- Story and signs are Czech and must stay gender-neutral for Josepho (nonbinary, they/them in English): present tense, no
+  past-tense verb endings or gendered adjectives about Josepho; address the player in the imperative. In English
+  texts and docs, use they/them for Josepho.
+- The story of all ten levels, the mechanics per level and the rules for building them are in `docs/pribeh.md`.
 - Controls read raw keys (`BT.isKeyDown`) OR the default gamepad mapping (`BT.isDown`).
 - Next chapters: add `levelN.js` with the same shape as `LEVEL1` (map, signs, prisms).

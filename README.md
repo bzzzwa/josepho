@@ -3,12 +3,13 @@
 A platformer in the spirit of Mario and SuperTux on a tiny 192 x 108 screen, built with
 [BLIT386](https://www.npmjs.com/package/blit386).
 
-The world of Lumen has lost its colors: the Sorter split all light into two boxes, black and white. Josepho fits in
-neither box - and so Josepho still carries every color. Wake the prisms and the palette itself comes back to life:
-first the grass, then the sky, then the flowers. Returning colors also change the world - leaves, clouds and bell
-flowers only become solid once their color is back.
+The world of Lumen has lost its colors: the Sorter split all light into two boxes, black and white. Josepho - a
+nonbinary being (they/them) - fits in neither box, and so Josepho still carries every color. Wake the prisms and the
+palette itself comes back to life: first the grass, then the sky, then the flowers. Returning colors also change the
+world - leaves, clouds and bell flowers only become solid once their color is back.
 
-Current version: **0.1.1** - Chapter 1, "Svitani" (Dawn). See `CHANGELOG.md`.
+Current version: **0.2.0** - Chapter 1, "Svitani" (Dawn), playable on computers, phones and tablets. See
+`CHANGELOG.md`. The story of the whole game is in `docs/pribeh.md` (Czech).
 
 **Play it in your browser: https://bzzzwa.github.io/josepho/**
 
