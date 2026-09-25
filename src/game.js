@@ -29,6 +29,8 @@ import { bootstrap, BT, Color32, Vector2i } from 'blit386';
 import {
     Bell,
     Decor,
+    Driftwood,
+    Fish,
     GreatPrism,
     Greyling,
     Lantern,
@@ -38,6 +40,7 @@ import {
     Player,
     PopMote,
     Prism,
+    Shade,
     Sign,
     Thornback,
 } from './actors.js';
@@ -57,6 +60,12 @@ import { Level, SUB, TILE } from './world.js';
 
 const SCREEN_W = 192;
 const SCREEN_H = 108;
+const SAT_SPEED = 0.009; // a color fading in over about two seconds
+const TIDE_SPEED = 0.15; // a tide switch recolors almost at once
+// how far below the top of the screen the camera keeps Josepho: more room above in taller levels, for
+// blocks and signs (a 14-row level like level 1 barely scrolls up and down at all)
+const CAMERA_ABOVE = 50;
+const CAMERA_ABOVE_TALL = 64;
 
 // Keep in step with "version" in package.json and CHANGELOG.md.
 export const VERSION = '0.2.0';
@@ -125,6 +134,8 @@ export class Game {
         this.spec = spec;
         this.chroma = createChromaState(spec);
         this.satTarget = new Float32Array(spec.groupCount);
+        // how fast each group's color fades in or out, per frame (tide switches are quick)
+        this.satSpeed = new Float32Array(spec.groupCount).fill(SAT_SPEED);
         this.paletteDirty = true;
     }
 
@@ -150,6 +161,19 @@ export class Game {
         }
     }
 
+    /** Turns color groups off: their tiles lose volume at once, their color fades to grey. */
+    turnOff(names) {
+        for (const name of names) {
+            const g = this.groupIndex(name);
+            if (g >= 0) {
+                this.satTarget[g] = 0;
+            }
+            if (this.level) {
+                this.level.gates[name] = false;
+            }
+        }
+    }
+
     /** Every group grey except Josepho's own colors, plus whatever the level starts with. */
     resetChroma(startOn = []) {
         this.chroma.sat.fill(0);
@@ -169,13 +193,16 @@ export class Game {
         this.level = null;
         this.useSpec(createPaletteSpec({ colors: def.theme?.colors, sky: def.theme?.sky, stripes: def.spectrum ?? [] }));
         this.level = new Level(def);
-        this.background = new Background(this.level.pw);
+        this.background = new Background(this.level.pw, def.theme?.background);
         this.motes = [];
         this.prisms = [];
         this.lanterns = [];
         this.signs = [];
         this.bells = [];
         this.decor = [];
+        this.drifts = [];
+        this.shades = [];
+        this.takenShades = new Set();
         this.greatPrism = null;
         let signIndex = 0;
         let start = { tx: 3, ty: 10 };
@@ -211,11 +238,21 @@ export class Game {
                     this.bells.push(new Bell(s.tx, s.ty));
                     break;
                 case 'f':
-                case 'T':
-                    this.decor.push(new Decor(s.ch, s.tx, s.ty));
+                case 'T': {
+                    const d = new Decor(s.ch, s.tx, s.ty);
+                    d.tree = def.theme?.tree;
+                    this.decor.push(d);
+                    break;
+                }
+                case 'd':
+                    this.drifts.push(new Driftwood(s.tx, s.ty));
+                    break;
+                case 'z':
+                    this.shades.push(new Shade(s.tx, s.ty, this.shades.length));
                     break;
             }
         }
+        this.totalShades = this.shades.length;
         this.totalMotes = this.motes.length + this.level.tiles.flat().filter((ch) => ch === '?').length;
         this.startTile = start;
         this.checkpoint = start;
@@ -250,6 +287,8 @@ export class Game {
                 this.enemies.push(new Greyling(s.tx, s.ty));
             } else if (s.ch === 't') {
                 this.enemies.push(new Thornback(s.tx, s.ty));
+            } else if (s.ch === 'r') {
+                this.enemies.push(new Fish(s.tx, s.ty));
             }
         }
     }
@@ -512,10 +551,12 @@ export class Game {
             checkpoint: this.checkpoint,
             prisms: this.prisms.filter((p) => p.awake).map((p) => p.index),
             motes: [...this.takenMotes],
+            shades: [...this.takenShades],
             tiles: [...this.level.changes],
             moteCount: this.moteCount,
             frames: this.frames,
             maxX: this.maxX,
+            tide: this.level.activeSwitch(),
         };
         writeSave(this.save);
     }
@@ -531,10 +572,22 @@ export class Game {
         }
         this.takenMotes = new Set(p.motes ?? []);
         this.motes = this.motes.filter((m) => !this.takenMotes.has(m.id));
+        this.takenShades = new Set(p.shades ?? []);
+        this.shades = this.shades.filter((s) => !this.takenShades.has(s.index));
         for (const [key, ch] of p.tiles ?? []) {
             const [tx, ty] = key.split(',').map(Number);
             this.level.set(tx, ty, ch);
             this.level.changes.set(key, ch);
+        }
+        if (p.tide && this.level.switches.includes(p.tide)) {
+            // the tide as it was at the lantern
+            this.turnOff(this.level.switches.filter((g) => g !== p.tide));
+            this.turnOn([p.tide], true);
+            for (const g of this.level.switches) {
+                if (g !== p.tide) {
+                    this.chroma.sat[this.groupIndex(g)] = 0;
+                }
+            }
         }
         this.moteCount = p.moteCount ?? 0;
         this.frames = p.frames ?? 0;
@@ -554,7 +607,13 @@ export class Game {
 
     /** Remembers the finished level and unlocks the next one. */
     completeLevel() {
-        const result = { motes: this.moteCount, total: this.totalMotes, frames: this.frames };
+        const result = {
+            motes: this.moteCount,
+            total: this.totalMotes,
+            frames: this.frames,
+            shades: this.takenShades.size,
+            totalShades: this.totalShades,
+        };
         recordClear(this.save, this.levelNumber, result, WORLD.nodes.length);
         writeSave(this.save);
     }
@@ -637,7 +696,9 @@ export class Game {
         }
 
         const p = this.player;
+        this.carryOnDrift(p);
         p.update(inp, this);
+        this.landOnDrift(p);
 
         if (p.dead) {
             this.updateDeath();
@@ -675,11 +736,15 @@ export class Game {
         const p = this.player;
         for (const e of this.enemies) {
             e.update(this);
-            if (!e.active || e.state !== 'walk') {
+            const dangerous = e instanceof Fish ? !e.harmless : e.state === 'walk';
+            if (!e.active || !dangerous) {
                 continue;
             }
             // creatures bounce off each other
             for (const o of this.enemies) {
+                if (e.state !== 'walk') {
+                    break;
+                }
                 if (o !== e && o.state === 'walk' && o.active && e.overlaps(o) && Math.sign(o.px - e.px) === Math.sign(e.vx)) {
                     e.vx = -e.vx;
                 }
@@ -723,6 +788,18 @@ export class Game {
             }
         }
         this.motes = this.motes.filter((m) => !m.taken);
+
+        for (const sh of this.shades) {
+            if (!sh.taken && sh.hits(p)) {
+                sh.taken = true;
+                this.takenShades.add(sh.index);
+                this.sound.play('power');
+                this.sound.arpeggio([74, 78, 81, 86], 4, 'bell', 1);
+                this.fx.sparks(sh.x + 3, sh.y + 3, 30, 1.8);
+                this.banner = { text: `ZTRACENÝ ODSTÍN ${this.takenShades.size}/${this.totalShades}`, t: 0 };
+            }
+        }
+        this.shades = this.shades.filter((sh) => !sh.taken);
 
         for (const m of this.popMotes) {
             m.update();
@@ -807,6 +884,88 @@ export class Game {
         this.fx.burst(x, y, 6, [C.MOTE, C.MOTE_HI], 0.8, 0.02, 14);
     }
 
+    /**
+     * A tide switch was bumped: the color that is on goes grey (and loses its volume), the other one comes on.
+     * If Josepho would now be stuck inside a tile that just got volume, they are nudged out.
+     */
+    flipTide(tx, ty) {
+        const level = this.level;
+        const [a, b] = level.switches;
+        const now = level.activeSwitch();
+        const next = now === a ? b : a;
+        for (const name of [a, b]) {
+            const g = this.groupIndex(name);
+            if (g >= 0) {
+                this.satSpeed[g] = TIDE_SPEED;
+            }
+        }
+        this.turnOff([now]);
+        this.turnOn([next]);
+        this.sound.play('spring', { pitch: next === a ? 1.3 : 0.8 });
+        this.fx.ring(tx * TILE + 4, ty * TILE + 4, 3, C.WATER_FOAM, 30);
+        this.unstick(this.player);
+    }
+
+    /** Moves Josepho out of solid tiles (up first, then down, then sideways), up to one tile. */
+    unstick(p) {
+        const level = this.level;
+        if (!level.collides(p.px, p.py, p.w, p.h)) {
+            return;
+        }
+        for (let d = 1; d <= TILE; d++) {
+            for (const [dx, dy] of [
+                [0, -d],
+                [0, d],
+                [-d, 0],
+                [d, 0],
+            ]) {
+                if (!level.collides(p.px + dx, p.py + dy, p.w, p.h)) {
+                    p.x += dx * SUB;
+                    p.y += dy * SUB;
+                    if (dy < 0) {
+                        p.vy = 0;
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    /** Driftwood moves first and carries Josepho if they stand on it. */
+    carryOnDrift(p) {
+        for (const d of this.drifts) {
+            d.update(this.level);
+        }
+        const d = p.platform;
+        if (!d || p.dead) {
+            return;
+        }
+        if (!this.level.collides(p.px + d.dx, p.py + d.dy, p.w, p.h)) {
+            p.x += d.dx * SUB;
+            p.y += d.dy * SUB;
+        }
+    }
+
+    /** After Josepho moved: did they land on (or stay on) a piece of driftwood? */
+    landOnDrift(p) {
+        p.platform = null;
+        if (p.dead || p.vy < 0) {
+            return;
+        }
+        for (const d of this.drifts) {
+            const overX = p.px + p.w > d.x + 1 && p.px < d.x + d.w - 1;
+            if (overX && p.prevBottom <= d.y + 2 && p.bottom >= d.y) {
+                p.y = (d.y - p.h) * SUB;
+                p.vy = 0;
+                p.onGround = true;
+                p.platform = d;
+                p.flutterFuel = PHYS.flutterMax;
+                p.fluttering = false;
+                return;
+            }
+        }
+    }
+
     /** Josepho's head hit a tile. */
     headBump(p) {
         const level = this.level;
@@ -835,6 +994,8 @@ export class Game {
                 this.sound.play('bump');
                 this.sound.arpeggio([72, 76, 79, 84], 5);
             }
+        } else if (result === 'switch') {
+            this.flipTide(tx, ty);
         } else if (result === 'break') {
             this.fx.chips(tx * TILE + 2, ty * TILE + 2);
             this.sound.play('break');
@@ -974,15 +1135,19 @@ export class Game {
         const tx = p.cx - SCREEN_W / 2 + this.look;
         this.camX += (tx - this.camX) * 0.14;
         this.camX = Math.max(0, Math.min(level.pw - SCREEN_W, this.camX));
-        const ty = Math.max(0, Math.min(level.ph - SCREEN_H, p.py - 50));
+        const ty = Math.max(0, Math.min(level.ph - SCREEN_H, p.py - this.cameraAbove()));
         this.camY += (ty - this.camY) * 0.1;
+    }
+
+    cameraAbove() {
+        return this.level.h > 14 ? CAMERA_ABOVE_TALL : CAMERA_ABOVE;
     }
 
     snapCamera() {
         const p = this.player;
         this.look = p.facing * 18;
         this.camX = Math.max(0, Math.min(this.level.pw - SCREEN_W, p.cx - SCREEN_W / 2 + this.look));
-        this.camY = Math.max(0, Math.min(this.level.ph - SCREEN_H, p.py - 50));
+        this.camY = Math.max(0, Math.min(this.level.ph - SCREEN_H, p.py - this.cameraAbove()));
     }
 
     updateClear(inp) {
@@ -1001,7 +1166,7 @@ export class Game {
         const ch = this.chroma;
         for (let g = 0; g < ch.sat.length; g++) {
             const d = this.satTarget[g] - ch.sat[g];
-            ch.sat[g] += Math.sign(d) * Math.min(Math.abs(d), 0.009);
+            ch.sat[g] += Math.sign(d) * Math.min(Math.abs(d), this.satSpeed[g]);
         }
         ch.flash = Math.max(0, ch.flash - 0.03);
         if (this.state === 'play') {
@@ -1107,6 +1272,9 @@ export class Game {
         BT.cameraSet(new Vector2i(cx, cy));
         this.level.render(gfx, cx, cy);
         BT.cameraReset();
+        for (const d of this.drifts) {
+            d.render(gfx, cx, cy);
+        }
 
         for (const d of this.decor) {
             if (d.ch === 'f') {
@@ -1128,6 +1296,9 @@ export class Game {
         this.greatPrism?.render(gfx, cx, cy, this.tick);
         for (const m of this.motes) {
             m.render(gfx, cx, cy, this.tick);
+        }
+        for (const sh of this.shades) {
+            sh.render(gfx, cx, cy, this.tick);
         }
         if (withActors) {
             for (const m of this.popMotes) {
@@ -1159,6 +1330,10 @@ export class Game {
         }
         if (this.player.glow) {
             gfx.draw('petal', 30, 2);
+        }
+        // the level's lost shades, found or not yet
+        for (let i = 0; i < this.totalShades; i++) {
+            gfx.draw(i < this.takenShades.size ? 'hudShadeOn' : 'hudShadeOff', 42 + i * 5, 4);
         }
 
         if (this.banner) {
@@ -1276,7 +1451,8 @@ export class Game {
         }
         const secs = Math.floor(this.frames / 60);
         const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-        gfx.textCentered(`JISKRY ${this.moteCount}/${this.totalMotes}    ČAS ${time}`, SCREEN_W / 2, 72, C.GHOST);
+        const shades = this.totalShades ? `   ODSTÍNY ${this.takenShades.size}/${this.totalShades}` : '';
+        gfx.textCentered(`JISKRY ${this.moteCount}/${this.totalMotes}${shades}   ČAS ${time}`, SCREEN_W / 2, 72, C.GHOST);
         gfx.draw(this.tick % 40 < 20 ? 'j.happy' : 'j.idle0', 91, 79);
         if (this.stateTime > 60 && Math.floor(this.tick / 30) % 2 === 0) {
             gfx.textCentered(this.touch.active ? 'KLEPNI - NA MAPU' : 'MEZERNÍK - NA MAPU', SCREEN_W / 2, 95, C.UI_DIM);

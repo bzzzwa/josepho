@@ -303,6 +303,10 @@ export class WorldMap {
         gfx.rect(0, PANEL_Y, 192, 1, C.UI_DIM);
         gfx.text(`${n.number}  ${n.name}`, 6, PANEL_Y + 5, C.WHITE);
         const done = this.save.done[n.number];
+        // lost shades found in this level
+        for (let i = 0; i < (done?.totalShades ?? 0); i++) {
+            gfx.draw(i < (done.shades ?? 0) ? 'hudShadeOn' : 'hudShadeOff', 172 + i * 5, PANEL_Y + 4);
+        }
         let info;
         if (!this.hasLevel(n.number)) {
             info = 'PŘIPRAVUJEME';

@@ -131,7 +131,7 @@ export function checkJumps(def) {
     const w = map[0].length;
     const h = map.length;
     const at = (x, y) => (y < 0 || y >= h || x < 0 || x >= w ? '.' : map[y][x]);
-    const solid = (ch) => '#RB?GU'.includes(ch) || legend[ch]?.kind === 'solid';
+    const solid = (ch) => '#RB?GUP'.includes(ch) || legend[ch]?.kind === 'solid';
     const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway';
     const free = (ch) => !solid(ch);
 

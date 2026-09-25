@@ -49,6 +49,8 @@ export function recordClear(save, number, result, levelCount) {
     if (best) {
         save.done[number] = result;
     }
+    // lost shades: once found, a shade stays found
+    save.done[number].shades = Math.max(result.shades ?? 0, before?.shades ?? 0);
     save.unlocked = Math.max(save.unlocked, Math.min(levelCount, number + 1));
     save.current = number;
     if (save.inProgress?.level === number) {

@@ -3,8 +3,9 @@
 // append it. Its node on the world map is in worldmap.js.
 
 import { LEVEL1 } from './level1.js';
+import { LEVEL2 } from './level2.js';
 
-export const LEVELS = [LEVEL1];
+export const LEVELS = [LEVEL1, LEVEL2];
 
 export function levelByNumber(number) {
     return LEVELS.find((level) => level.number === number) ?? null;

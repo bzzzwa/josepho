@@ -24,8 +24,18 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `spectrum` | no | The level's colors: `[{ id, color }]`, up to 8 stripes. Each stripe is a color group. |
 | `legend` | no | The level's own color-gated tiles: `{ char: { gate, kind, look } }`. |
 | `startOn` | no | Color groups already on when the level starts, e.g. `['sky', 'earth']`. |
-| `theme` | no | `{ colors: { DIRT: '#hex', ... }, sky: [[6 hex] x 3] }` - replaces shared colors for this level's look. |
+| `switches` | if the map has `P` | The two color groups a tide switch flips between, e.g. `['shallow', 'deep']`. |
+| `theme` | no | The level's look (below). |
 | `clearText` | no | Lines for the level-clear screen. |
+
+### theme
+
+| Field | What it does |
+| --- | --- |
+| `colors` | `{ DIRT: '#hex', GRASS: '#hex', ... }` - replaces shared colors by their names in `C` (`colors.js`). |
+| `sky` | Three rows of six hex colors (pre-dawn, sunrise, morning): the level's own sky. |
+| `tree` | `'palm'` draws palms for `T` instead of round trees. |
+| `background` | `'sea'`: low islands and open water behind, instead of hills. |
 
 Texts are Czech, in capitals, and always gender-neutral for Josepho (present tense, no gendered endings).
 `npm run test:levels` reports any letter the pixel font cannot draw.
@@ -43,16 +53,20 @@ gated tiles can be walked through). The built-in groups are `sky`, `earth`, `gre
 | Char | Tile | | Char | Object |
 | --- | --- | --- | --- | --- |
 | `.` | air | | `@` | Josepho starts here (exactly one) |
+| `,` | backdrop: air drawn as a dark wall (inside a pit) | | | |
 | `#` | earth with grass | | `F` | the end of the level (at least one) |
 | `R` | rock | | `o` | mote of light |
 | `B` | stone brick (breakable when glowing) | | `l` | lantern (checkpoint) |
 | `?` | prism block with a mote | | `s` | sign |
 | `G` | prism block with a glow petal | | `1`-`9` | small prism (see `prisms`) |
+| `P` | tide switch (flips the two `switches` colors) | | `z` | lost shade (3 per level) |
 | `=` | wooden plank (one-way) | | `e` | greyling |
 | `~` | water (deadly) | | `t` | thornback |
 | `^` | thorns (deadly) | | `b` | bell flower (spring once `bloom` is on) |
 | `L` | leaf ledge, needs `green` | | `f` | flower |
-| `C` | cloud ledge, needs `sky` | | `T` | tree |
+| `C` | cloud ledge, needs `sky` | | `T` | tree (or palm) |
+| | | | `d` | driftwood (floats on the water below it) |
+| | | | `r` | leaping fish (sits in water; stranded when drained) |
 
 ### The level's own gated tiles
 
@@ -66,9 +80,20 @@ legend: {
 ```
 
 - `gate` - the color group (a stripe id or a built-in group).
-- `kind` - `'solid'` (default) or `'oneway'`.
-- `look` - `'block'` (default), `'ledge'`, `'leaf'` or `'cloud'`. Blocks and ledges are drawn in the stripe's
-  color; while the color is off they show as a dotted outline.
+- `kind` - `'solid'` (default), `'oneway'` or `'water'`. Water whose color is on can be swum in; grey water has
+  no volume at all, so Josepho drops through it to whatever is below (build a floor under it).
+- `look` - `'block'` (default), `'ledge'`, `'water'`, `'leaf'` or `'cloud'`. Blocks, ledges and water are drawn in
+  the stripe's color; while the color is off they show as a dotted outline (water: an empty basin).
+
+### Tide switches
+
+A `P` block flips the level's two `switches` colors: the one that is on goes grey (and loses its volume at
+once), the other one comes on. It stays grey and does nothing until one of the two colors is on - usually a
+prism turns the first one on. If Josepho would be stuck inside a tile that just got volume, they are nudged
+out. The tide is saved with the game at every lantern.
+
+When teaching a switch, make sure it is needed: a gap or wall it opens must be too big to jump, even with a
+flutter (13+ tiles wide, 6+ tiles tall).
 
 ## Reach
 
@@ -81,3 +106,4 @@ Josepho's jumps do not change between levels. Keep required jumps inside these l
 | gap with a flutter | 9 tiles | about 11 |
 | climb, held jump | 4 tiles | about 5 |
 | climb with a bell flower | 8 tiles | about 9 |
+| climb out of water (a leap at the surface) | 1 tile | about 2 (3 with jump held) |

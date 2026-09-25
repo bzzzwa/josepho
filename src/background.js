@@ -30,7 +30,9 @@ function valueNoise(seed) {
 }
 
 export class Background {
-    constructor(worldWidth) {
+    /** style: 'hills' (default) or 'sea' - low islands on the horizon and open water instead of hills. */
+    constructor(worldWidth, style = 'hills') {
+        this.style = style;
         const farN = valueNoise(11);
         const midN = valueNoise(29);
         const treeN = valueNoise(47);
@@ -41,7 +43,8 @@ export class Background {
         this.far = new Int16Array(farLen);
         for (let x = 0; x < farLen; x++) {
             const ridge = farN(x, 38) * 22 + farN(x + 500, 13) * 7;
-            this.far[x] = Math.round(76 - ridge);
+            // by the sea the far land is a row of low islands
+            this.far[x] = style === 'sea' ? Math.round(84 - Math.max(0, ridge - 12) * 0.8) : Math.round(76 - ridge);
         }
 
         // Mid hills: soft rounded shapes with a fringe of little conifers.
@@ -115,6 +118,11 @@ export class Background {
         gfx.ditherRow('dither50', 0, 80, SCREEN_W, C.SKY0 + 5);
         gfx.ditherRow('dither25', 0, 81, SCREEN_W, C.SKY0 + 5);
 
+        if (this.style === 'sea') {
+            this.renderSea(gfx, camX, tick);
+            return;
+        }
+
         // Mid hills.
         const mo = Math.floor(camX * MID_SPEED);
         for (let sx2 = 0; sx2 < SCREEN_W; sx2++) {
@@ -123,6 +131,24 @@ export class Background {
             gfx.line(sx2, top, sx2, SCREEN_H - 1, C.MID);
             if (this.mid[i + 1] > top) {
                 gfx.pixel(sx2, top, C.MID_HI);
+            }
+        }
+    }
+
+    /**
+     * Open water from the horizon down, with glinting wave lines that slide with the parallax. It is drawn in
+     * the hazy colors of the far mountains, not the water colors, so the distant sea is never mistaken for
+     * water Josepho can swim in.
+     */
+    renderSea(gfx, camX, tick) {
+        const top = 84;
+        gfx.rect(0, top, SCREEN_W, SCREEN_H - top, C.FAR);
+        gfx.ditherRow('dither50', 0, top, SCREEN_W, C.SKY0 + 5);
+        for (let y = top + 3; y < SCREEN_H; y += 3) {
+            const speed = MID_SPEED * (1 + (y - top) / 20);
+            const off = Math.floor(camX * speed + tick * 0.05) % 24;
+            for (let x = -off; x < SCREEN_W; x += 24) {
+                gfx.rect(x + ((y * 7) % 11), y, 4 + ((y >> 1) % 3), 1, C.FAR_HI);
             }
         }
     }

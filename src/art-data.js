@@ -471,6 +471,65 @@ const sBlockGhost = ['7.7.7.7.', '.......7', '7.......', '.......7', '7.......',
 const sLedge = ['69888888', '87777777', '66666666', '.6....6.', '........', '........', '........', '........'];
 const sLedgeGhost = ['7.7.7.7.', '.......7', '.7.7.7.7', '........', '........', '........', '........', '........'];
 
+// Tide switch (8 x 8), drawn in the color that is on; and grey before the tide wakes up.
+const swBlock = ['66666666', '69888886', '68797976', '67979796', '68777776', '68797976', '67979796', '66666666'];
+const swBlockOff = ['gggggggg', 'giiiiiig', 'gihihihg', 'ghihihig', 'gihhhhhg', 'gihihihg', 'ghihihig', 'gggggggg'];
+
+// Water in a spectrum stripe's color (surface with two wave frames, and the body below), plus the dotted
+// line left where drained water was.
+const sWaterTop0 = ['9..99..9', '89988998', '88888888', '77787777', '77777777', '77777877', '77777777', '77777777'];
+const sWaterTop1 = ['.99..99.', '98899889', '88888888', '77777787', '77777777', '78777777', '77777777', '77777777'];
+const sWater = ['77777777', '77777777', '77787777', '77777777', '77777777', '77777787', '77777777', '77777777'];
+const sWaterGhost = ['7.7.7.7.', '........', '........', '........', '........', '........', '........', '........'];
+
+// Palm tree for the coast (16 x 24), drawn instead of the round tree in levels that ask for it.
+const palm = [
+    '...xx.....xx....',
+    '..xVVx...xVVx...',
+    '.xV..xx.xx..Vx..',
+    'x.....xxx.....x.',
+    '....xxVVVxx.....',
+    '...xV..O..Vx....',
+    '..x....O....x...',
+    '.......oO.......',
+    '.......oO.......',
+    '........oO......',
+    '........oO......',
+    '........oO......',
+    '.........oO.....',
+    '.........oO.....',
+    '.........oO.....',
+    '.........oO.....',
+    '........oOO.....',
+    '........oO......',
+    '........oO......',
+    '.......oOO......',
+    '.......oO.......',
+    '.......oO.......',
+    '......ooOO......',
+    '.....oOO.OO.....',
+];
+
+// Leaping fish (10 x 7): swims, leaps; and a stranded one flopping on the sea floor.
+const fish0 = ['..........', '...ggg....', '.gghhhgg.g', 'ghhWKhhhgg', 'ghhhhhhhgg', '.gghhhgg.g', '...ggg....'];
+const fish1 = ['...g......', '..ggg.....', '.gghhhgg..', 'ghhWKhhhgg', 'ghhhhhhhg.', '.gghhhgg.g', '...gg.....'];
+const fishFlop = ['..........', '..........', '..........', '...gggg...', '.gghhhhgg.', 'ghWKhhhhhg', 'gggggggggg'];
+
+// Driftwood (24 x 6): a floating plank Josepho can stand on.
+const drift = [
+    '..OOOOOOOOOOOOOOOOOOOO..',
+    '.OooooooOoooooooooOoooO.',
+    'OoooOoooooooooOooooooooO',
+    '.OOOOOOOOOOOOOOOOOOOOOO.',
+    '..O.......O.......O.....',
+    '........................',
+];
+
+// A lost shade (7 x 7): a shard of the spectrum hidden in each level.
+const shade = ['...n...', '..n0n..', '.n012n.', 'n01235n', '.n345n.', '..n5n..', '...n...'];
+const hudShadeOn = ['.n.', 'n2n', '.n.'];
+const hudShadeOff = ['.U.', 'UuU', '.U.'];
+
 // HUD icons.
 const hudMote = ['.nn.', 'nmmn', 'nmmn', '.nn.'];
 const hudPrismOff = ['..U..', '.UuU.', 'UuuuU', '.UuU.', '..U..'];
@@ -518,6 +577,8 @@ function ditherRows(pattern) {
 const dither50 = ditherRows(['#.', '.#']);
 const dither25 = ditherRows(['#...', '..#.']);
 const dither12 = ditherRows(['#.......', '....#...']);
+// 8 x 8 dotted fill for tinted see-through walls: the inside of a pit, drained water
+const backdrop = ['#...#...', '..#...#.', '#...#...', '..#...#.', '#...#...', '..#...#.', '#...#...', '..#...#.'];
 
 // Debris chip when a brick breaks, and a puff of dust.
 const chip = ['SrS', 'rsS', 'SS.'];
@@ -569,6 +630,20 @@ export const SPRITES = {
     tree: tree,
     cloudBig: cloudBig,
     cloudSmall: cloudSmall,
+    swBlock: swBlock,
+    swBlockOff: swBlockOff,
+    sWaterTop0: sWaterTop0,
+    sWaterTop1: sWaterTop1,
+    sWater: sWater,
+    sWaterGhost: sWaterGhost,
+    palm: palm,
+    fish0: fish0,
+    fish1: fish1,
+    fishFlop: fishFlop,
+    drift: drift,
+    shade: shade,
+    hudShadeOn: hudShadeOn,
+    hudShadeOff: hudShadeOff,
     sBlock: sBlock,
     sBlockGhost: sBlockGhost,
     sLedge: sLedge,
@@ -589,6 +664,7 @@ export const MASKS = {
     dither50,
     dither25,
     dither12,
+    backdrop,
     tbBox,
     tbCircle,
     tbLeft,
@@ -615,6 +691,8 @@ export const MIRRORED = [
     'j.happy',
     'greyling0',
     'greyling1',
+    'fish0',
+    'fish1',
     'thorn0',
     'thorn1',
 ];

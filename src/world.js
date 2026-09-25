@@ -8,14 +8,18 @@ import { C, STRIPE_SHADES } from './colors.js';
 export const TILE = 8;
 export const SUB = 16;
 
-const SOLID = new Set(['#', 'R', 'B', '?', 'G', 'U']);
-export const TILE_CHARS = new Set(['.', '#', 'R', 'B', '?', 'G', 'U', '=', '~', '^']);
-export const ENTITY_CHARS = new Set(['@', 'o', 'e', 't', 's', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F', 'l', 'b', 'f', 'T']);
+const SOLID = new Set(['#', 'R', 'B', '?', 'G', 'U', 'P']);
+// P is the tide switch: a block that flips the level's two `switches` colors each time it is bumped
+// ',' is backdrop: empty air drawn as a dark wall behind (the inside of a pit or a cave)
+export const TILE_CHARS = new Set(['.', ',', '#', 'R', 'B', '?', 'G', 'U', 'P', '=', '~', '^']);
+export const ENTITY_CHARS = new Set([
+    '@', 'o', 'e', 't', 's', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F', 'l', 'b', 'f', 'T', 'd', 'r', 'z',
+]);
 
 // Color-gated tiles every level knows. A level adds its own in `legend` (see src/levels/README.md):
-//   kind  'solid' (a full block) or 'oneway' (a ledge you can jump up through)
+//   kind  'solid' (a full block), 'oneway' (a ledge you can jump up through) or 'water' (swimmable)
 //   gate  the color group that must be on for the tile to have volume
-//   look  which art to draw: leaf, cloud, block, ledge
+//   look  which art to draw: leaf, cloud, block, ledge, water
 export const BUILTIN_LEGEND = {
     L: { kind: 'oneway', gate: 'green', look: 'leaf' },
     C: { kind: 'oneway', gate: 'sky', look: 'cloud' },
@@ -41,7 +45,7 @@ export class Level {
                 const ch = this.tiles[y][x];
                 if (ENTITY_CHARS.has(ch)) {
                     this.spawns.push({ ch, tx: x, ty: y });
-                    this.tiles[y][x] = '.';
+                    this.tiles[y][x] = this.fillUnder(def, x, y);
                 }
             }
         }
@@ -53,6 +57,9 @@ export class Level {
         }
         // spectrum stripe order, for picking each stripe's palette offset when drawing
         this.stripeIndex = Object.fromEntries((def.spectrum ?? []).map((st, i) => [st.id, i]));
+        // the two color groups a tide switch (P) flips between
+        this.switches = def.switches ?? [];
+        this.tick = 0;
         // which color groups are on: group name -> true. A gated tile has volume only while its gate is on.
         this.gates = {};
         // tile bounce animations: key "x,y" -> frames left
@@ -68,6 +75,22 @@ export class Level {
                 }
             }
         }
+    }
+
+    /**
+     * What is left in a map cell once the object drawn there (a fish, a shade, ...) has been taken out: the
+     * water or backdrop around it, so a fish in a lagoon does not leave a hole of air in the water.
+     */
+    fillUnder(def, x, y) {
+        const legend = { ...BUILTIN_LEGEND, ...(def.legend ?? {}) };
+        const row = def.map[y];
+        // only the neighbours at the same height: driftwood lying on the surface must not pull water up
+        for (const ch of [row[x - 1], row[x + 1]]) {
+            if (ch === ',' || legend[ch]?.kind === 'water') {
+                return ch;
+            }
+        }
+        return '.';
     }
 
     tile(tx, ty) {
@@ -96,6 +119,16 @@ export class Level {
 
     isOneWay(ch) {
         return ch === '=' || this.gatedOn(ch, 'oneway');
+    }
+
+    /** Is the point (in pixels) inside water whose color is on? Grey water has no volume at all. */
+    isWater(px, py) {
+        return this.gatedOn(this.tile(Math.floor(px / TILE), Math.floor(py / TILE)), 'water');
+    }
+
+    /** The switch group that is on right now, or null (before the tide has been woken up). */
+    activeSwitch() {
+        return this.switches.find((g) => this.gates[g]) ?? null;
     }
 
     /**
@@ -164,6 +197,10 @@ export class Level {
             this.bumps.set(`${tx},${ty}`, 8);
             return ch === '?' ? 'mote' : 'petal';
         }
+        if (ch === 'P') {
+            this.bumps.set(`${tx},${ty}`, 8);
+            return this.activeSwitch() ? 'switch' : 'thud';
+        }
         if (ch === 'B') {
             if (canBreak) {
                 this.set(tx, ty, '.');
@@ -180,6 +217,7 @@ export class Level {
     }
 
     update() {
+        this.tick++;
         for (const [key, t] of this.bumps) {
             if (t <= 1) {
                 this.bumps.delete(key);
@@ -253,6 +291,16 @@ export class Level {
             case 'U':
                 gfx.draw('usedBlock', x, y);
                 break;
+            case 'P': {
+                // shows the color that is on now; grey until the tide wakes up
+                const active = this.activeSwitch();
+                if (active) {
+                    gfx.draw('swBlock', x, y, (this.stripeIndex[active] ?? 0) * STRIPE_SHADES);
+                } else {
+                    gfx.draw('swBlockOff', x, y);
+                }
+                break;
+            }
             case '=':
                 gfx.draw('plank', x, y);
                 break;
@@ -261,6 +309,11 @@ export class Level {
                 break;
             case '^':
                 gfx.draw('spikes', x, y);
+                break;
+            case ',':
+                // the dark back wall of a pit: solid, so nothing behind shows through
+                gfx.rect(x, y, TILE, TILE, C.SHADE);
+                gfx.tint('backdrop', x, y, C.DIRT_DK);
                 break;
             default: {
                 const entry = this.legend[ch];
@@ -281,6 +334,23 @@ export class Level {
             case 'cloud': {
                 const v = tx % 2;
                 gfx.draw(on ? `cloud${v}` : `cloudGhost${v}`, x, y);
+                break;
+            }
+            case 'water': {
+                const offset = (this.stripeIndex[entry.gate] ?? 0) * STRIPE_SHADES;
+                const surface = this.legend[this.tile(tx, Math.floor(y / TILE) - 1)]?.kind !== 'water';
+                if (!on) {
+                    // drained: a basin of wet sand, and a dotted line where the surface was
+                    gfx.rect(x, y, TILE, TILE, C.DIRT_DK);
+                    gfx.tint('backdrop', x, y, C.DIRT);
+                    if (surface) {
+                        gfx.draw('sWaterGhost', x, y, offset);
+                    }
+                } else if (surface) {
+                    gfx.draw(Math.floor(this.tick / 20 + tx) % 2 ? 'sWaterTop0' : 'sWaterTop1', x, y, offset);
+                } else {
+                    gfx.draw('sWater', x, y, offset);
+                }
                 break;
             }
             default: {
