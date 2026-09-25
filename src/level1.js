@@ -43,6 +43,11 @@ export const LEVEL1 = {
         'ZVONKY SPÍ, DOKUD SE NEVRÁTÍ KVĚTY. OTEVŘENÝ ZVONEK TĚ VYHODÍ AŽ KE KORUNÁM.',
     ],
 
+    // Touch-screen versions of signs that talk about keys (by sign index). The others are shown as they are.
+    touchSigns: {
+        0: '< > CHŮZE. KDYŽ SMĚR DRŽÍŠ DÉLE, JOSEPHO SE ROZBĚHNE.\nKRUH VPRAVO JE SKOK. ČÍM DÉLE HO DRŽÍŠ, TÍM VÝŠ.',
+    },
+
     // What each small prism gives back, in the order 1, 2, 3.
     prisms: [
         { groups: ['GREEN', 'EARTH'], gate: 'green', banner: 'VRACÍ SE ZELEŇ' },

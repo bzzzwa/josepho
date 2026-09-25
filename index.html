@@ -3,8 +3,17 @@
 <html lang="cs">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
         <title>Josepho - Kapitola 1: Svítání</title>
+        <meta name="theme-color" content="#000000" />
+        <!-- installable "app": opens without browser bars from the home screen (the only fullscreen on iPhone) -->
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/icon.svg" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Josepho" />
         <style>
             *,
             *::before,
@@ -21,6 +30,13 @@
 
             body {
                 background: black;
+                /* phones: no text selection, callouts, pull-to-refresh or double-tap zoom while playing */
+                -webkit-user-select: none;
+                user-select: none;
+                -webkit-touch-callout: none;
+                -webkit-tap-highlight-color: transparent;
+                overscroll-behavior: none;
+                touch-action: none;
             }
 
             #canvas-container {

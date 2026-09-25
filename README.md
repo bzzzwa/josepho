@@ -32,6 +32,12 @@ A web address like `http://localhost:5173` appears. Open it in your browser to p
 | Drop through a plank | Down + jump |
 | Pause | Enter, Esc or P |
 
+On a phone or tablet, on-screen buttons appear: arrows at the lower left (hold a direction for a moment and Josepho
+starts running), a jump button at the lower right, pause at the top. Hold the device sideways. Tapping to start also
+switches to fullscreen; the fullscreen button is on the title screen (top right) and on the pause screen, and on a
+computer the F key toggles it. iPhone browsers cannot go fullscreen - use Share -> Add to Home Screen instead, and
+Josepho then opens without the browser bars.
+
 Tip: many keyboards cannot register some three-key combinations (Shift + arrow + Space is a common one), so a jump
 can get lost while running. Arrows + X (run) + Z (jump), or A / D + J + K, avoid that.
 
