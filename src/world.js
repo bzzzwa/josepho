@@ -7,6 +7,7 @@ import { C, STRIPE_SHADES } from './colors.js';
 
 export const TILE = 8;
 export const SUB = 16;
+const SWITCH_REST = 20; // frames a tide switch ignores bumps after flipping (longer while Josepho stays beneath)
 
 const SOLID = new Set(['#', 'R', 'B', '?', 'G', 'U', 'P']);
 // P is the tide switch: a block that flips the level's two `switches` colors each time it is bumped
@@ -59,6 +60,10 @@ export class Level {
         this.stripeIndex = Object.fromEntries((def.spectrum ?? []).map((st, i) => [st.id, i]));
         // the two color groups a tide switch (P) flips between
         this.switches = def.switches ?? [];
+        // after a flip the switch rests until Josepho has moved away from under it (and at least a moment), so
+        // floating up under it in the water that just came does not flip it straight back
+        this.switchRest = 0;
+        this.switchRestX = -1; // the column of the switch that is resting
         this.tick = 0;
         // which color groups are on: group name -> true. A gated tile has volume only while its gate is on.
         this.gates = {};
@@ -199,7 +204,12 @@ export class Level {
         }
         if (ch === 'P') {
             this.bumps.set(`${tx},${ty}`, 8);
-            return this.activeSwitch() ? 'switch' : 'thud';
+            if (!this.activeSwitch() || this.switchRest > 0) {
+                return 'thud';
+            }
+            this.switchRest = SWITCH_REST;
+            this.switchRestX = tx;
+            return 'switch';
         }
         if (ch === 'B') {
             if (canBreak) {
@@ -216,8 +226,13 @@ export class Level {
         return null;
     }
 
-    update() {
+    /** Called every frame with Josepho's box: the resting switch wakes once they are no longer beneath it. */
+    update(px = -999, w = 0) {
         this.tick++;
+        const beneath = px + w > this.switchRestX * TILE - 2 && px < (this.switchRestX + 1) * TILE + 2;
+        if (this.switchRest > 1 || (this.switchRest === 1 && !beneath)) {
+            this.switchRest--;
+        }
         for (const [key, t] of this.bumps) {
             if (t <= 1) {
                 this.bumps.delete(key);

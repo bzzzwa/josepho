@@ -4,13 +4,14 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
 
 ## Unreleased
 
-Phase 0: the ground for levels 2-10, and the test room of level 2.
+Phase 0: the ground for levels 2-10, and level 2.
 
 ### Added
 
-- Level 2 "Melciny" as a test room: the tide switch (it flips the shallows and the deep water; colored water
-  has volume, grey water does not) taught in four steps, swimming, driftwood, leaping fish, and drained water
-  you can walk through on the sea floor. Sand, palms and the open sea behind.
+- Level 2 "Melciny" (Shallows), 244 tiles: the beach, the tide switch taught in four steps (it flips the
+  shallows and the deep water; colored water has volume, grey water does not), a lagoon to swim with driftwood
+  and leaping fish, a trench to swim across - or to drain, walk and fill again from a switch on its floor - and
+  a last bridge before the flag. Sand, palms and a hazy sea behind; two lanterns and three lost shades.
 - Lost shades: three hidden in each level from level 2 on, shown in the HUD, on the clear screen and on the map.
 - World map of Lumen with all ten regions from the story. Finished levels raise their flag, the land regains color
   after the first level, the next region unlocks and Josepho walks there. Regions without a level yet say so.

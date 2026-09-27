@@ -181,6 +181,9 @@ export function checkJumps(def) {
         if (s.x1 >= goal || s.x1 >= w - 2) {
             continue;
         }
+        if (at(s.x0, s.row - 1) === ',' || at(s.x1, s.row - 1) === ',') {
+            continue; // the floor of a pit (backdrop behind it): its way out is back the way you came
+        }
         const hasSpring = springs.some((b) => b.x >= s.x0 - 1 && b.x <= s.x1 && b.y + 1 === s.row);
         if (segments.some((t) => reach(s, t, SAFE.gap, hasSpring))) {
             continue;

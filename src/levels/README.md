@@ -90,7 +90,8 @@ legend: {
 A `P` block flips the level's two `switches` colors: the one that is on goes grey (and loses its volume at
 once), the other one comes on. It stays grey and does nothing until one of the two colors is on - usually a
 prism turns the first one on. If Josepho would be stuck inside a tile that just got volume, they are nudged
-out. The tide is saved with the game at every lantern.
+out. After a flip the switch rests until Josepho has moved away from beneath it, so floating up under it in
+the water that just came does not flip it straight back. The tide is saved with the game at every lantern.
 
 When teaching a switch, make sure it is needed: a gap or wall it opens must be too big to jump, even with a
 flutter (13+ tiles wide, 6+ tiles tall).

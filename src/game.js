@@ -679,7 +679,7 @@ export class Game {
         }
         this.frames++;
         this.fx.update();
-        this.level.update();
+        this.level.update(this.player.px, this.player.w);
         if (this.banner) {
             this.banner.t++;
             if (this.banner.t > 200) {
