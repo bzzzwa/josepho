@@ -25,6 +25,12 @@ export const PHYS = {
     flutterFall: 5, // slow sinking speed while fluttering
     stompBounce: 44,
     springPower: 70,
+    // swimming (in water whose color is on)
+    swimMax: 12, // slower than walking
+    swimGravity: 1,
+    swimSink: 14, // fastest sinking speed
+    swimStroke: 28, // one press of jump underwater
+    swimLeap: 52, // a stroke with the head out of the water: enough to climb onto a 1-tile shore
 };
 
 // ---------------------------------------------------------------------------------------------- Josepho
@@ -60,6 +66,8 @@ export class Player {
         this.blink = 0;
         this.landSquash = 0;
         this.happy = false;
+        this.inWater = false;
+        this.platform = null; // driftwood Josepho stands on
         this.prevBottom = this.y + this.h * SUB;
     }
 
@@ -98,7 +106,13 @@ export class Player {
 
         this.prevBottom = this.bottom;
         const dir = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
-        const max = inp.run ? PHYS.runMax : PHYS.walkMax;
+        const wasInWater = this.inWater;
+        this.inWater = level.isWater(this.cx, this.py + 6);
+        if (this.inWater !== wasInWater && Math.abs(this.vy) > 8) {
+            game.fx.splash(this.cx, this.py + 6);
+            game.sound.play('splash', { volume: 0.5 });
+        }
+        const max = this.inWater ? PHYS.swimMax : inp.run ? PHYS.runMax : PHYS.walkMax;
 
         // horizontal
         if (dir !== 0) {
@@ -110,11 +124,11 @@ export class Player {
                 }
             } else if (Math.abs(this.vx) < max || Math.sign(this.vx) !== dir) {
                 this.vx += dir * PHYS.accel;
-            } else if (this.onGround) {
+            } else if (this.onGround || this.inWater) {
                 // slow down gently when letting go of run
                 this.vx -= Math.sign(this.vx) * PHYS.friction;
             }
-        } else if (this.onGround) {
+        } else if (this.onGround || this.inWater) {
             if (Math.abs(this.vx) <= PHYS.friction) {
                 this.vx = 0;
             } else {
@@ -131,7 +145,20 @@ export class Player {
         this.coyote = this.onGround ? PHYS.coyote : Math.max(0, this.coyote - 1);
 
         let dropThrough = false;
-        if (this.buffer > 0 && this.coyote > 0) {
+        if (this.inWater) {
+            // swimming: every press is a stroke; with the head above the surface it is a leap out
+            if (inp.jumpPressed) {
+                const headOut = !level.isWater(this.cx, this.py - 1);
+                this.vy = -(headOut ? PHYS.swimLeap : PHYS.swimStroke);
+                this.jumping = headOut;
+                this.buffer = 0;
+                this.onGround = false;
+                game.sound.play('flutter', { pitch: 0.6 });
+                game.fx.add({ kind: 'px', x: this.cx, y: this.py + 2, vx: 0, vy: -0.4, life: 40, color: C.WATER_FOAM });
+            }
+            this.fluttering = false;
+            this.coyote = 0;
+        } else if (this.buffer > 0 && this.coyote > 0) {
             if (inp.down && this.onGround && level.onOneWay(this.px, this.py, this.w, this.h)) {
                 dropThrough = true;
                 this.y += SUB;
@@ -162,7 +189,18 @@ export class Player {
         if (this.vy >= 0) {
             this.spring = false;
         }
-        this.vy = Math.min(this.vy + g, PHYS.maxFall);
+        if (this.inWater) {
+            // water holds Josepho up: slow sinking, strokes slow down quickly
+            this.vy = Math.max(-PHYS.swimLeap, Math.min(this.vy + PHYS.swimGravity, PHYS.swimSink));
+            if (this.vy < 0 && !this.jumping) {
+                this.vy += 1;
+            }
+            if (game.tick % 50 === 0) {
+                game.fx.add({ kind: 'px', x: this.cx + this.facing * 2, y: this.py + 1, vx: 0, vy: -0.3, life: 45, color: C.WATER_FOAM });
+            }
+        } else {
+            this.vy = Math.min(this.vy + g, PHYS.maxFall);
+        }
         if (this.fluttering && this.flutterFuel > 0 && this.vy > -8) {
             this.flutterFuel--;
             this.vy = Math.max(this.vy - 9, Math.min(this.vy, PHYS.flutterFall));
@@ -246,6 +284,10 @@ export class Player {
         }
         if (this.happy) {
             return Math.floor(this.anim / 20) % 2 ? 'j.happy' : 'j.idle0';
+        }
+        if (this.inWater && !this.onGround) {
+            // paddling with the wings of light
+            return Math.floor(this.anim / 10) % 2 ? 'j.flutter0' : 'j.flutter1';
         }
         if (!this.onGround) {
             if (this.fluttering && this.flutterFuel > 0) {
@@ -630,11 +672,223 @@ export class Decor {
             return;
         }
         if (this.ch === 'T') {
-            gfx.draw('tree', this.x - 4 - camX, this.bottom - 24 - camY);
+            gfx.draw(this.tree ?? 'tree', this.x - 4 - camX, this.bottom - 24 - camY);
         } else {
             const name = bloom ? `flower${this.variant}` : 'flowerBud';
             const sway = bloom && Math.floor((tick + this.tx * 11) / 40) % 2 ? 1 : 0;
             gfx.draw(name, this.x + sway - camX, this.bottom - 9 - camY);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------- level 2 on
+
+/**
+ * Driftwood: a floating plank that bobs on the water and drifts slowly back and forth. Josepho can stand on
+ * it (the game moves Josepho along with it). Position in whole pixels; `dx`/`dy` is the last frame's motion.
+ */
+export class Driftwood {
+    w = 24;
+    h = 4;
+
+    constructor(tx, ty) {
+        this.homeX = tx * TILE - 8;
+        // put 'd' just above the water: the plank then sits half in it, its lower edge under the surface
+        this.baseY = ty * TILE + 7;
+        this.x = this.homeX;
+        this.y = this.baseY;
+        this.t = (tx * 17) % 200;
+        this.range = 20; // pixels to each side
+        this.dx = 0;
+        this.dy = 0;
+    }
+
+    update(level) {
+        this.t++;
+        // floats while its water is there; when the water is drained it settles on the sea floor
+        this.sunk ??= 0;
+        const floating = level.isWater(this.homeX + 12, this.baseY + 6);
+        if (floating) {
+            this.sunk = Math.max(0, this.sunk - 1);
+        } else if (!level.collides(this.x + 2, this.baseY + this.sunk + this.h, this.w - 4, 1, true)) {
+            this.sunk = Math.min(this.sunk + 2, 64);
+        }
+        const drifting = floating ? Math.sin(this.t * 0.012) * this.range : this.x - this.homeX;
+        const nx = Math.round(this.homeX + drifting);
+        const ny = Math.round(this.baseY + this.sunk + (floating ? Math.sin(this.t * 0.06) * 1.2 : 0));
+        this.dx = nx - this.x;
+        this.dy = ny - this.y;
+        this.x = nx;
+        this.y = ny;
+    }
+
+    render(gfx, camX, camY) {
+        gfx.draw('drift', this.x - camX, this.y - 1 - camY);
+    }
+}
+
+// how the leaping fish behave
+const FISH = {
+    leapSpeed: 2.0, // up to about 2.5 tiles above the surface
+    gravity: 0.1,
+    drift: 0.4, // sideways speed during a leap
+    waitMin: 180, // frames between leaps (3-5 seconds)
+    waitMax: 300,
+    near: 72, // only leaps when Josepho is this close (pixels, sideways)
+};
+
+/**
+ * Leaping fish: waits under the surface, then leaps out in an arc and dives back. Stompable like a greyling.
+ * It only leaps when Josepho is near, and always lands back in its own water. Where its water has been
+ * drained (the color is off), it lies on the sea floor and only flops - harmless.
+ */
+export class Fish {
+    alive = true;
+    state = 'swim'; // swim | leap | squash | stranded
+    w = 8;
+    h = 6;
+    stompable = true;
+    active = true;
+    timer = 0;
+
+    constructor(tx, ty) {
+        this.homeX = tx * TILE;
+        this.homeY = ty * TILE + 2;
+        this.x = this.homeX;
+        this.y = this.homeY;
+        this.vy = 0;
+        this.dir = -1;
+        this.wait = FISH.waitMin + ((tx * 37) % (FISH.waitMax - FISH.waitMin));
+        this.minX = null; // the stretch of its water, found on the first update
+        this.maxX = null;
+    }
+
+    /** The water the fish lives in, left to right on its row (whether or not its color is on right now). */
+    findWater(level) {
+        const ty = Math.floor((this.homeY + 3) / TILE);
+        const isWaterTile = (tx) => level.legend[level.tile(tx, ty)]?.kind === 'water';
+        let left = Math.floor((this.homeX + 4) / TILE);
+        let right = left;
+        while (isWaterTile(left - 1)) {
+            left--;
+        }
+        while (isWaterTile(right + 1)) {
+            right++;
+        }
+        this.minX = left * TILE + 1;
+        this.maxX = (right + 1) * TILE - this.w - 1;
+    }
+
+    get px() {
+        return Math.round(this.x);
+    }
+
+    get py() {
+        return Math.round(this.y);
+    }
+
+    overlaps(p) {
+        return p.px < this.px + this.w && p.px + p.w > this.px && p.py < this.py + this.h && p.py + p.h > this.py;
+    }
+
+    update(game) {
+        const level = game.level;
+        this.timer++;
+        if (this.minX === null) {
+            this.findWater(level);
+        }
+        if (this.state === 'squash') {
+            this.y += 1;
+            if (this.timer > 30) {
+                this.alive = false;
+            }
+            return;
+        }
+        const watery = level.isWater(this.homeX + 4, this.homeY + 3);
+        if (!watery) {
+            // drained: drop to the floor and flop
+            if (this.state !== 'stranded') {
+                this.state = 'stranded';
+                this.vy = 0;
+            }
+            if (!level.collides(this.px, this.py + this.h, this.w, 1, true)) {
+                this.vy = Math.min(this.vy + 0.25, 3);
+                this.y += this.vy;
+            }
+            return;
+        }
+        if (this.state === 'stranded') {
+            // the water came back: swim up home
+            this.y += (this.homeY - this.y) * 0.1;
+            if (Math.abs(this.y - this.homeY) < 1) {
+                this.state = 'swim';
+                this.y = this.homeY;
+            }
+            return;
+        }
+        if (this.state === 'swim') {
+            this.x = Math.max(this.minX, Math.min(this.maxX, this.homeX + Math.sin(this.timer * 0.03) * 6));
+            const near = Math.abs(game.player.cx - (this.x + this.w / 2)) < FISH.near;
+            if (this.timer > this.wait && near) {
+                this.state = 'leap';
+                this.vy = -FISH.leapSpeed;
+                this.dir = game.player.cx < this.x ? -1 : 1;
+                this.timer = 0;
+            }
+            return;
+        }
+        // leap: an arc that never leaves its own water
+        this.vy += FISH.gravity;
+        this.y += this.vy;
+        this.x = Math.max(this.minX, Math.min(this.maxX, this.x + this.dir * FISH.drift));
+        if (this.vy > 0 && this.y >= this.homeY) {
+            this.y = this.homeY;
+            this.homeX = this.x;
+            this.state = 'swim';
+            this.timer = 0;
+            this.wait = FISH.waitMin + ((Math.round(this.homeX) * 7) % (FISH.waitMax - FISH.waitMin));
+            game.fx.splash(this.x + 4, this.homeY);
+        }
+    }
+
+    get harmless() {
+        return this.state === 'stranded' || this.state === 'squash';
+    }
+
+    render(gfx, camX, camY) {
+        const x = this.px - 1 - camX;
+        const y = this.py - camY;
+        if (this.state === 'stranded') {
+            gfx.draw('fishFlop', x, y - 1 + (Math.floor(this.timer / 12) % 2));
+            return;
+        }
+        let name = Math.floor(this.timer / 8) % 2 ? 'fish1' : 'fish0';
+        if (this.dir > 0) {
+            name += '<';
+        }
+        gfx.draw(name, x, y);
+    }
+}
+
+/** A lost shade: one of three hidden in each level. */
+export class Shade {
+    taken = false;
+
+    constructor(tx, ty, index) {
+        this.index = index;
+        this.x = tx * TILE;
+        this.y = ty * TILE;
+    }
+
+    hits(p) {
+        return p.px < this.x + 8 && p.px + p.w > this.x && p.py < this.y + 8 && p.py + p.h > this.y;
+    }
+
+    render(gfx, camX, camY, tick) {
+        const bob = Math.round(Math.sin(tick * 0.07 + this.index) * 1.5);
+        gfx.draw('shade', this.x - camX, this.y + bob - camY);
+        if (tick % 40 < 3) {
+            gfx.pixel(this.x + 3 - camX, this.y - 2 + bob - camY, C.WHITE);
         }
     }
 }
