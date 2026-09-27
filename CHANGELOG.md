@@ -2,9 +2,9 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.3.0 - 2026-09-27
 
-Phase 0: the ground for levels 2-10, and level 2.
+The world map, saved progress, and level 2 "Melciny" (Shallows).
 
 ### Added
 
