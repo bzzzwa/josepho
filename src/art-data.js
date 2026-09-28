@@ -5,7 +5,7 @@
 // of the ones that need to face left, and returns the pixels plus a name -> rectangle map.
 // No engine imports here, so the art can be previewed and tested outside the browser.
 
-import { C, STRIPE0 } from './colors.js';
+import { C, HINT0, STRIPE0 } from './colors.js';
 import { FONT_MASKS } from './font.js';
 
 export const CHARS = {
@@ -66,6 +66,14 @@ export const CHARS = {
     7: STRIPE0 + 1,
     8: STRIPE0 + 2,
     9: STRIPE0 + 3,
+    // a stripe's hint shades (they keep their color while the stripe is off); drawn with offset 2 * k
+    '+': HINT0,
+    '-': HINT0 + 1,
+    // the base of stripes 0, 1 and 2 directly (the autumn tree: yellow, orange and red leaves in level 3)
+    Y: STRIPE0 + 1,
+    J: STRIPE0 + 5,
+    M: STRIPE0 + 9,
+    p: STRIPE0 + 8,
 };
 
 // ---------------------------------------------------------------------------------------------------------
@@ -530,6 +538,77 @@ const shade = ['...n...', '..n0n..', '.n012n.', 'n01235n', '.n345n.', '..n5n..',
 const hudShadeOn = ['.n.', 'n2n', '.n.'];
 const hudShadeOff = ['.U.', 'UuU', '.U.'];
 
+// Leaf block (level 3): a wooden frame with a leaf that always shows the color it brings back for a while.
+// The frame and the leaf are separate so the leaf can be shifted to its stripe with a palette offset.
+const tmFrame = ['OOOOOOOO', 'OooooooO', 'Oo....oO', 'Oo....oO', 'Oo....oO', 'Oo....oO', 'OooooooO', 'OOOOOOOO'];
+const tmLeaf = ['........', '....+...', '...+++..', '..++-+..', '..+-++..', '..-++...', '.-......', '........'];
+
+// Autumn tree (16 x 24): its leaves are yellow, orange and red - grey until those colors are on.
+const treeAutumn = [
+    '......LLLL......',
+    '....LLYYJJLL....',
+    '...LYYYJJJMML...',
+    '..LYYJJJJMMMML..',
+    '.LYYYJJJMMMMpML.',
+    '.LYJJJJMMMMMpML.',
+    'LYYJJJMMMMMppMML',
+    'LYJJJMMMMMpMMMML',
+    'LJJJJMMMMpMMMMML',
+    'LJJJMMMMMMMMMMLL',
+    '.LJJMMMMMMMMMLL.',
+    '.LLJMMMLMMMMLLL.',
+    '..LLLMLLLMMLLL..',
+    '...LLLLOLLLLL...',
+    '......LOL.......',
+    '.......oO.......',
+    '.......oO.......',
+    '.......oO.......',
+    '......ooOO......',
+    '.......oO.......',
+    '.......oO.......',
+    '......ooOO......',
+    '.....ooOOOO.....',
+    '....oOO..OOO....',
+];
+
+// Skatulka (10 x 10): a box of the Sorter's that hides in the ground and snaps its lid.
+const kBoxClosed = [
+    '..........',
+    '..........',
+    'KKKKKKKKKK',
+    'KiiiiiiiiK',
+    'KggggggggK',
+    'KhhhhhhhhK',
+    'KhhKhhKhhK',
+    'KhhhhhhhhK',
+    'KhhhhhhhhK',
+    'KKKKKKKKKK',
+];
+const kBoxOpen = [
+    'KKKKKKKKK.',
+    'KiiiiiiiK.',
+    'KKKKKKKKKK',
+    'KWKWKWKWKK',
+    'K........K',
+    'KWKWKWKWKK',
+    'KhhhhhhhhK',
+    'KhhWKhWKhK',
+    'KhhhhhhhhK',
+    'KKKKKKKKKK',
+];
+const kBoxFlat = [
+    '..........',
+    '..........',
+    '..........',
+    '..........',
+    '..........',
+    '..........',
+    'KKKKKKKKKK',
+    'KiiiiiiiiK',
+    'KhhhhhhhhK',
+    'KKKKKKKKKK',
+];
+
 // HUD icons.
 const hudMote = ['.nn.', 'nmmn', 'nmmn', '.nn.'];
 const hudPrismOff = ['..U..', '.UuU.', 'UuuuU', '.UuU.', '..U..'];
@@ -644,6 +723,12 @@ export const SPRITES = {
     shade: shade,
     hudShadeOn: hudShadeOn,
     hudShadeOff: hudShadeOff,
+    tmFrame: tmFrame,
+    tmLeaf: tmLeaf,
+    treeAutumn: treeAutumn,
+    kBoxClosed: kBoxClosed,
+    kBoxOpen: kBoxOpen,
+    kBoxFlat: kBoxFlat,
     sBlock: sBlock,
     sBlockGhost: sBlockGhost,
     sLedge: sLedge,

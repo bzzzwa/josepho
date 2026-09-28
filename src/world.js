@@ -3,7 +3,7 @@
 // Positions of moving things are kept in "subpixels" (1/16 of a pixel) as whole numbers, so motion can be
 // smooth and slow while every drawn coordinate is still a whole pixel.
 
-import { C, STRIPE_SHADES } from './colors.js';
+import { C, HINT_SHADES, STRIPE_SHADES } from './colors.js';
 
 export const TILE = 8;
 export const SUB = 16;
@@ -14,12 +14,13 @@ const SOLID = new Set(['#', 'R', 'B', '?', 'G', 'U', 'P']);
 // ',' is backdrop: empty air drawn as a dark wall behind (the inside of a pit or a cave)
 export const TILE_CHARS = new Set(['.', ',', '#', 'R', 'B', '?', 'G', 'U', 'P', '=', '~', '^']);
 export const ENTITY_CHARS = new Set([
-    '@', 'o', 'e', 't', 's', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F', 'l', 'b', 'f', 'T', 'd', 'r', 'z',
+    '@', 'o', 'e', 't', 's', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F', 'l', 'b', 'f', 'T', 'd', 'r', 'z', 'k',
 ]);
 
 // Color-gated tiles every level knows. A level adds its own in `legend` (see src/levels/README.md):
-//   kind  'solid' (a full block), 'oneway' (a ledge you can jump up through) or 'water' (swimmable)
-//   gate  the color group that must be on for the tile to have volume
+//   kind  'solid' (a full block), 'oneway' (a ledge you can jump up through), 'water' (swimmable), or
+//         'timer' (a leaf block: always solid; bumping it turns its gate on for `seconds`)
+//   gate  the color group that must be on for the tile to have volume (a timer: the group it turns on)
 //   look  which art to draw: leaf, cloud, block, ledge, water
 export const BUILTIN_LEGEND = {
     L: { kind: 'oneway', gate: 'green', look: 'leaf' },
@@ -67,6 +68,8 @@ export class Level {
         this.tick = 0;
         // which color groups are on: group name -> true. A gated tile has volume only while its gate is on.
         this.gates = {};
+        // groups about to run out (timer colors): their tiles blink
+        this.blinking = new Set();
         // tile bounce animations: key "x,y" -> frames left
         this.bumps = new Map();
         // tiles changed while playing ("x,y" -> new character), so a saved game can put them back
@@ -119,7 +122,7 @@ export class Level {
 
     /** Does this map character block movement from every side right now? */
     isSolidTile(ch) {
-        return SOLID.has(ch) || this.gatedOn(ch, 'solid');
+        return SOLID.has(ch) || this.gatedOn(ch, 'solid') || this.legend[ch]?.kind === 'timer';
     }
 
     isOneWay(ch) {
@@ -151,7 +154,7 @@ export class Level {
                     return true; // the world's side walls
                 }
                 const ch = this.tile(tx, ty);
-                if (SOLID.has(ch) || this.gatedOn(ch, 'solid')) {
+                if (this.isSolidTile(ch)) {
                     return true;
                 }
                 if (movingDown && !dropThrough && ty === y1 && this.isOneWay(ch) && py + h - 1 === ty * TILE) {
@@ -201,6 +204,10 @@ export class Level {
             this.changes.set(`${tx},${ty}`, 'U');
             this.bumps.set(`${tx},${ty}`, 8);
             return ch === '?' ? 'mote' : 'petal';
+        }
+        if (this.legend[ch]?.kind === 'timer') {
+            this.bumps.set(`${tx},${ty}`, 8);
+            return 'timer';
         }
         if (ch === 'P') {
             this.bumps.set(`${tx},${ty}`, 8);
@@ -341,7 +348,13 @@ export class Level {
 
     /** A color-gated tile: solid-looking when its color is on, a dotted ghost outline when it is off. */
     drawGated(gfx, entry, tx, x, y) {
-        const on = !!this.gates[entry.gate];
+        // about to run out: blink between the tile and its ghost
+        const on = !!this.gates[entry.gate] && !(this.blinking.has(entry.gate) && Math.floor(this.tick / 5) % 2);
+        if (entry.kind === 'timer') {
+            gfx.draw('tmFrame', x, y);
+            gfx.draw('tmLeaf', x, y, (this.stripeIndex[entry.gate] ?? 0) * HINT_SHADES);
+            return;
+        }
         switch (entry.look) {
             case 'leaf':
                 gfx.draw(on ? 'leaf' : 'leafGhost', x, y);

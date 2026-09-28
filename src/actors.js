@@ -892,3 +892,138 @@ export class Shade {
         }
     }
 }
+
+// ---------------------------------------------------------------------------------------------- level 3 on
+
+// how a Skatulka behaves
+const BOX = {
+    reach: 26, // wakes up when Josepho is this close (pixels, sideways)
+    warn: 24, // frames it rattles in the ground first, peeking out - time to stop or jump over it
+    rise: 8, // frames to come up (and to go down)
+    snap: 12, // frames the lid stays open, then closed, then open...
+    snaps: 3, // lid openings each time it comes up
+    rest: 80, // frames it stays hidden before it can come up again
+};
+
+/**
+ * Skatulka: one of the Sorter's boxes, hidden in the ground. When Josepho comes close it pops up and snaps its
+ * lid a few times, then hides again. Open, it bites; closed, it can be stomped - and stays shut for good.
+ * It is drawn before the tiles, so the ground covers the part of it that is still underground.
+ */
+export class Skatulka {
+    alive = true;
+    active = true;
+    behindTiles = true;
+    w = 10;
+    h = 10;
+    state = 'hidden'; // hidden | warn | rising | snapping | sinking | squash | flat
+    timer = 0;
+    rest = 0;
+
+    constructor(tx, ty) {
+        this.x = tx * TILE - 1;
+        this.bottom = (ty + 1) * TILE;
+        this.sunk = this.h; // pixels still in the ground
+    }
+
+    get px() {
+        return this.x;
+    }
+
+    /** Top of the part above the ground. */
+    get py() {
+        return this.bottom - this.h + this.sunk;
+    }
+
+    get open() {
+        return this.state === 'snapping' && Math.floor(this.timer / BOX.snap) % 2 === 0;
+    }
+
+    get stompable() {
+        return !this.open;
+    }
+
+    get harmless() {
+        return this.state === 'hidden' || this.state === 'flat' || this.sunk > 5;
+    }
+
+    overlaps(p) {
+        return p.px < this.x + this.w && p.px + p.w > this.x && p.py < this.bottom && p.py + p.h > this.py;
+    }
+
+    update(game) {
+        this.timer++;
+        const p = game.player;
+        switch (this.state) {
+            case 'hidden':
+                if (this.rest > 0) {
+                    this.rest--;
+                } else if (Math.abs(p.cx - (this.x + this.w / 2)) < BOX.reach && Math.abs(p.bottom - this.bottom) < 24) {
+                    this.state = 'warn';
+                    this.timer = 0;
+                }
+                break;
+            case 'warn':
+                // peeks out and rattles: a warning before it comes up
+                this.sunk = this.h - 4;
+                if (this.timer % 8 === 0) {
+                    game.sound.play('bump', { pitch: 1.8, volume: 0.5 });
+                }
+                if (this.timer >= BOX.warn) {
+                    this.state = 'rising';
+                    this.timer = 0;
+                }
+                break;
+            case 'rising':
+                this.sunk = Math.max(0, this.h - Math.round((this.timer / BOX.rise) * this.h));
+                if (this.sunk === 0) {
+                    this.state = 'snapping';
+                    this.timer = 0;
+                }
+                break;
+            case 'snapping':
+                if (this.timer % BOX.snap === 0 && this.open) {
+                    game.sound.play('stomp', { pitch: 1.6, volume: 0.5 });
+                }
+                if (this.timer >= BOX.snap * BOX.snaps * 2) {
+                    this.state = 'sinking';
+                    this.timer = 0;
+                }
+                break;
+            case 'sinking':
+                this.sunk = Math.min(this.h, Math.round((this.timer / BOX.rise) * this.h));
+                if (this.sunk === this.h) {
+                    this.state = 'hidden';
+                    this.rest = BOX.rest;
+                }
+                break;
+            case 'squash':
+                // stomped while shut: it stays a flat, harmless box
+                this.state = 'flat';
+                this.sunk = 0;
+                game.fx.burst(this.x + 5, this.bottom - 4, 8, [C.GREY_LT, C.WHITE], 1);
+                break;
+        }
+    }
+
+    /**
+     * Drawn after the tiles: when hidden, a thin crack in the ground gives it away; when it warns, its lid
+     * rattles in front of the grass so the warning cannot be missed.
+     */
+    renderFront(gfx, camX, camY) {
+        if (this.state === 'hidden') {
+            gfx.rect(this.x + 2 - camX, this.bottom - camY, this.w - 4, 1, C.INK);
+        } else if (this.state === 'warn') {
+            const rattle = Math.floor(this.timer / 3) % 2 ? 1 : -1;
+            gfx.drawPart('kBoxClosed', 0, 2, this.w, 4, this.x + rattle - camX, this.bottom - 4 - camY);
+        }
+    }
+
+    render(gfx, camX, camY) {
+        if (this.state === 'hidden' || this.state === 'warn') {
+            return;
+        }
+        const name = this.state === 'flat' ? 'kBoxFlat' : this.open ? 'kBoxOpen' : 'kBoxClosed';
+        gfx.draw(name, this.x - camX, this.bottom - this.h + this.sunk - camY);
+    }
+}

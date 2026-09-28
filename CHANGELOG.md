@@ -2,6 +2,20 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- Level 3 "Opadavani" (Falling leaves) as a test room: leaf blocks bring a color back for a few seconds (a bar
+  in the HUD shows the time, the leaves blink and a clock ticks before it runs out), taught in four steps; and the
+  Skatulka, a box in the ground that rattles as a warning, pops up and snaps its lid (stomp it while shut).
+  Autumn trees that light up with the colors, brown hills and falling leaves.
+
+### Changed
+
+- The jump check in `npm run test:levels` follows paths from ledge to ledge, so it also sees stairs going up.
+- The level bot bumps leaf blocks, climbs ledges and goes back to try a stretch again.
+
 ## 0.3.0 - 2026-09-27
 
 The world map, saved progress, and level 2 "Melciny" (Shallows).

@@ -113,6 +113,10 @@ export class Fx {
             p.vy = p.vy * p.drag + p.g;
             p.x += p.vx;
             p.y += p.vy;
+            if (p.kind === 'leaf') {
+                // a leaf sways from side to side as it falls
+                p.x += Math.sin(p.age * 0.06 + p.phase) * 0.35;
+            }
         }
         this.parts = this.parts.filter((p) => p.age < p.life);
         for (const r of this.rings) {
@@ -166,6 +170,9 @@ export class Fx {
                     break;
                 case 'chip':
                     gfx.draw('chip', x, y);
+                    break;
+                case 'leaf':
+                    gfx.rect(x, y, Math.floor(p.age / 20) % 2 ? 2 : 1, 1, p.color);
                     break;
             }
         }
