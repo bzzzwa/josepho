@@ -899,6 +899,7 @@ export class Shade {
 const BOX = {
     reach: 26, // wakes up when Josepho is this close (pixels, sideways)
     warn: 24, // frames it rattles in the ground first, peeking out - time to stop or jump over it
+    peek: 4, // pixels it peeks out while it rattles
     rise: 8, // frames to come up (and to go down)
     snap: 12, // frames the lid stays open, then closed, then open...
     snaps: 3, // lid openings each time it comes up
@@ -906,9 +907,10 @@ const BOX = {
 };
 
 /**
- * Skatulka: one of the Sorter's boxes, hidden in the ground. When Josepho comes close it pops up and snaps its
- * lid a few times, then hides again. Open, it bites; closed, it can be stomped - and stays shut for good.
- * It is drawn before the tiles, so the ground covers the part of it that is still underground.
+ * Skatulka: one of the Sorter's boxes, hidden in the ground. When Josepho comes close it rattles (a warning),
+ * pops up and snaps its lid a few times, then hides again. From the side, an open lid bites. From above it can
+ * always be stomped - landing on the lid slams it shut for good, open or not - once at least half of the box is
+ * out of the ground. It is drawn before the tiles, so the ground covers the part of it still underground.
  */
 export class Skatulka {
     alive = true;
@@ -939,8 +941,9 @@ export class Skatulka {
         return this.state === 'snapping' && Math.floor(this.timer / BOX.snap) % 2 === 0;
     }
 
+    /** Landing on it from above always shuts it (the game only asks while it is out of the ground). */
     get stompable() {
-        return !this.open;
+        return true;
     }
 
     get harmless() {
@@ -953,6 +956,8 @@ export class Skatulka {
 
     update(game) {
         this.timer++;
+        // where its top was before this frame's move: a box rising under a falling Josepho is still a stomp
+        this.prevTop = this.py;
         const p = game.player;
         switch (this.state) {
             case 'hidden':
@@ -963,19 +968,23 @@ export class Skatulka {
                     this.timer = 0;
                 }
                 break;
-            case 'warn':
+            case 'warn': {
                 // peeks out and rattles: a warning before it comes up
-                this.sunk = this.h - 4;
+                this.sunk = this.h - BOX.peek;
                 if (this.timer % 8 === 0) {
                     game.sound.play('bump', { pitch: 1.8, volume: 0.5 });
                 }
-                if (this.timer >= BOX.warn) {
+                // it never comes up under Josepho's feet: while they stand on its spot, it only rattles
+                const onTop = p.px + p.w > this.x && p.px < this.x + this.w && Math.abs(p.bottom - this.bottom) < 3;
+                if (this.timer >= BOX.warn && !onTop) {
                     this.state = 'rising';
                     this.timer = 0;
                 }
                 break;
+            }
             case 'rising':
-                this.sunk = Math.max(0, this.h - Math.round((this.timer / BOX.rise) * this.h));
+                // from the peek up to fully out
+                this.sunk = Math.max(0, this.h - BOX.peek - Math.round((this.timer / BOX.rise) * (this.h - BOX.peek)));
                 if (this.sunk === 0) {
                     this.state = 'snapping';
                     this.timer = 0;

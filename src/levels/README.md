@@ -68,7 +68,7 @@ gated tiles can be walked through). The built-in groups are `sky`, `earth`, `gre
 | `C` | cloud ledge, needs `sky` | | `T` | tree (or palm) |
 | | | | `d` | driftwood (floats on the water below it) |
 | | | | `r` | leaping fish (sits in water; stranded when drained) |
-| | | | `k` | Skatulka: a box in the ground that rattles, pops up and snaps (stomp it while shut) |
+| | | | `k` | Skatulka: a box in the ground that rattles, pops up and snaps; it bites from the side, a stomp from above shuts it for good |
 
 ### The level's own gated tiles
 

@@ -760,7 +760,10 @@ export class Game {
             if (!e.overlaps(p) || p.dead) {
                 continue;
             }
-            const stomp = e.stompable && p.vy > 0 && p.prevBottom <= e.py + 3;
+            // a stomp: falling onto its top (a box that moves up, like a Skatulka, is judged by its top before
+            // this frame, so rising under Josepho does not count as running into its side)
+            const top = Math.min(e.py, e.prevTop ?? e.py);
+            const stomp = e.stompable && p.vy > 0 && p.prevBottom <= top + 3;
             if (stomp) {
                 e.state = 'squash';
                 e.timer = 0;

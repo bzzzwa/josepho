@@ -6,9 +6,12 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
 
 ### Added
 
-- Level 3 "Opadavani" (Falling leaves) as a test room: leaf blocks bring a color back for a few seconds (a bar
-  in the HUD shows the time, the leaves blink and a clock ticks before it runs out), taught in four steps; and the
-  Skatulka, a box in the ground that rattles as a warning, pops up and snaps its lid (stomp it while shut).
+- Level 3 "Opadavani" (Falling leaves), 264 tiles: the edge of the forest and the leaf prism, leaf blocks that
+  bring a color back for a few seconds (a bar in the HUD shows the time, the leaves blink and a clock ticks before
+  it runs out) taught in four steps, a clearing with Skatulka boxes, and the treetops - orange leaves up to a
+  branch, red leaves across to the next. Two lanterns and three lost shades. The Skatulka is a box in the ground
+  that rattles as a warning, pops up and snaps its lid: it bites from the side, and a stomp from above shuts it
+  for good (it never comes up under Josepho's feet).
   Autumn trees that light up with the colors, brown hills and falling leaves.
 
 ### Changed
