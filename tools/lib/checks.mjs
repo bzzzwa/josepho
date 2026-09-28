@@ -59,6 +59,9 @@ export function checkLevel(def, world) {
         if (!groups.has(entry.gate)) {
             errors.push(`legend '${ch}': unknown color group '${entry.gate}'`);
         }
+        if (entry.kind === 'timer' && !(entry.seconds > 0)) {
+            errors.push(`legend '${ch}': a leaf block (kind 'timer') needs seconds`);
+        }
     }
 
     const count = (ch) => map.reduce((n, row) => n + [...row].filter((c) => c === ch).length, 0);
@@ -131,7 +134,7 @@ export function checkJumps(def) {
     const w = map[0].length;
     const h = map.length;
     const at = (x, y) => (y < 0 || y >= h || x < 0 || x >= w ? '.' : map[y][x]);
-    const solid = (ch) => '#RB?GUP'.includes(ch) || legend[ch]?.kind === 'solid';
+    const solid = (ch) => '#RB?GUP'.includes(ch) || legend[ch]?.kind === 'solid' || legend[ch]?.kind === 'timer';
     const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway';
     const free = (ch) => !solid(ch);
 
@@ -165,17 +168,33 @@ export function checkJumps(def) {
 
     const warnings = [];
     const notes = [];
-    const reach = (s, t, gapLimit, hasSpring) => {
-        if (t === s || t.x1 <= s.x1) {
-            return false;
-        }
-        const first = Math.max(t.x0, s.x1 + 1);
-        const gap = first - s.x1 - 1;
+    // can Josepho get from ledge s to ledge t (either side, or above/below it) with one jump?
+    const jump = (s, t, gapLimit, hasSpring) => {
+        const gap = Math.max(0, Math.max(s.x0, t.x0) - Math.min(s.x1, t.x1) - 1);
         const rise = s.row - t.row; // tiles up
         if (rise <= 0) {
             return gap <= gapLimit + Math.floor(-rise / 2);
         }
         return (rise <= SAFE.rise || (hasSpring && rise <= SAFE.springRise)) && gap <= gapLimit;
+    };
+    const springOn = (s) => springs.some((b) => b.x >= s.x0 - 1 && b.x <= s.x1 && b.y + 1 === s.row);
+    // from s, following jumps from ledge to ledge, is any ledge further right in reach?
+    const onward = (s, gapLimit) => {
+        const seen = new Set([s]);
+        const queue = [s];
+        while (queue.length) {
+            const a = queue.shift();
+            if (a.x1 > s.x1) {
+                return true;
+            }
+            for (const t of segments) {
+                if (!seen.has(t) && jump(a, t, gapLimit, springOn(a))) {
+                    seen.add(t);
+                    queue.push(t);
+                }
+            }
+        }
+        return false;
     };
     for (const s of segments) {
         if (s.x1 >= goal || s.x1 >= w - 2) {
@@ -184,12 +203,11 @@ export function checkJumps(def) {
         if (at(s.x0, s.row - 1) === ',' || at(s.x1, s.row - 1) === ',') {
             continue; // the floor of a pit (backdrop behind it): its way out is back the way you came
         }
-        const hasSpring = springs.some((b) => b.x >= s.x0 - 1 && b.x <= s.x1 && b.y + 1 === s.row);
-        if (segments.some((t) => reach(s, t, SAFE.gap, hasSpring))) {
+        if (onward(s, SAFE.gap)) {
             continue;
         }
         const where = `the ledge at columns ${s.x0}-${s.x1} (row ${s.row})`;
-        if (segments.some((t) => reach(s, t, SAFE.flutterGap, hasSpring))) {
+        if (onward(s, SAFE.flutterGap)) {
             notes.push(`from ${where} the next landing needs a flutter`);
         } else {
             warnings.push(`from ${where} nothing to the right is in safe jump reach`);

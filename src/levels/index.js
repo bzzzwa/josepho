@@ -4,8 +4,9 @@
 
 import { LEVEL1 } from './level1.js';
 import { LEVEL2 } from './level2.js';
+import { LEVEL3 } from './level3.js';
 
-export const LEVELS = [LEVEL1, LEVEL2];
+export const LEVELS = [LEVEL1, LEVEL2, LEVEL3];
 
 export function levelByNumber(number) {
     return LEVELS.find((level) => level.number === number) ?? null;

@@ -48,8 +48,54 @@ function blockedAhead(level, p) {
     return false;
 }
 
-/** A tide switch right above Josepho's head (or `ahead` tiles further on), close enough to bump. */
-function switchOverhead(level, p, ahead = 0) {
+/** Are there tiles of this color in the next stretch of the level (so bumping its leaf block helps)? */
+function colorAhead(level, p, gate) {
+    const col = Math.floor(p.cx / 8);
+    for (let x = col + 1; x <= col + 16; x++) {
+        for (let y = 0; y < level.h; y++) {
+            if (level.legend[level.tile(x, y)]?.gate === gate && level.legend[level.tile(x, y)]?.kind !== 'timer') {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/** The nearest leaf block or tide switch behind Josepho (up to 20 tiles), bumpable from the ground below it. */
+function findTriggerBehind(level, p) {
+    const col = Math.floor(p.cx / 8);
+    const feetRow = Math.floor((p.bottom - 1) / 8);
+    for (let x = col; x >= col - 20; x--) {
+        for (let y = feetRow - 6; y <= feetRow - 2; y++) {
+            const ch = level.tile(x, y);
+            if (ch === 'P' || level.legend[ch]?.kind === 'timer') {
+                return { x, y };
+            }
+        }
+    }
+    return null;
+}
+
+/** A ledge a little ahead and 1-4 tiles up: jump onto it (climbing stairs of ledges). */
+function ledgeAhead(level, p) {
+    const col = Math.floor((p.px + p.w) / 8);
+    const feetRow = Math.floor((p.bottom - 1) / 8);
+    for (let dx = 1; dx <= 2; dx++) {
+        for (let y = feetRow - 4; y <= feetRow - 1; y++) {
+            const ch = level.tile(col + dx, y);
+            if (level.isOneWay(ch) && !level.isSolidTile(level.tile(col + dx, y - 1))) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * A tide switch or a leaf block right above Josepho's head (or `ahead` tiles further on), close enough to
+ * bump. A leaf block counts while its color is off or has less than half its time left.
+ */
+function switchOverhead(level, p, ahead = 0, timers = new Map()) {
     const T = 8;
     const x = Math.floor(p.cx / T) + ahead;
     const head = Math.floor(p.py / T);
@@ -57,6 +103,12 @@ function switchOverhead(level, p, ahead = 0) {
         const ch = level.tile(x, y);
         if (ch === 'P') {
             return level.activeSwitch() ? { x, y } : null;
+        }
+        if (level.legend[ch]?.kind === 'timer') {
+            // a leaf block whose color is already on needs no bump
+            const gate = level.legend[ch].gate;
+            const t = timers.get(gate);
+            return level.gates[gate] && (!t || t.left > t.total / 2) ? null : { x, y, gate };
         }
         if (level.isSolidTile(ch)) {
             return null;
@@ -76,6 +128,7 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
     let lastX = 0;
     let stuck = 0;
     let springMode = null;
+    let retreat = null; // going back to a leaf block or switch to try a stretch again
     let furthest = 0;
     let lastSwitch = { frame: -999, key: '' };
     let strokeTimer = 0;
@@ -100,8 +153,18 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
         }
         furthest = Math.max(furthest, p.px);
 
-        // a wall too high: go back and use a bell flower, if there is one
-        if (springMode) {
+        // stuck at a wall with a leaf block or switch behind: go back under it, bump it, try again
+        if (retreat) {
+            const col = Math.floor(p.cx / 8);
+            if (col > retreat.x) {
+                keys.push(LEFT);
+            } else if (p.onGround) {
+                hold = 8;
+                retreat = null;
+                lastSwitch = { frame: f, key: '' };
+            }
+        } else if (springMode) {
+            // a wall too high: go back and use a bell flower, if there is one
             const b = springMode;
             if (p.px > b.x - 22 && !springMode.approach) {
                 keys.push(LEFT);
@@ -129,11 +192,12 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
             }
         } else {
             keys.push(RIGHT, RUN);
-            const sw = p.onGround ? switchOverhead(level, p) : null;
+            const sw = p.onGround ? switchOverhead(level, p, 0, game.timers) : null;
             const swKey = sw ? `${sw.x},${sw.y}` : '';
             const again = swKey !== lastSwitch.key || f - lastSwitch.frame > 90;
-            const swSoon = p.onGround && !sw && [1, 2, 3].some((a) => switchOverhead(level, p, a));
-            if (sw && again && blockedAhead(level, p)) {
+            const swSoon = p.onGround && !sw && [1, 2, 3].some((a) => switchOverhead(level, p, a, game.timers));
+            const needed = sw && (blockedAhead(level, p) || (sw.gate && colorAhead(level, p, sw.gate)));
+            if (sw && again && needed) {
                 // the tide switch first: it may make the way
                 lastSwitch = { frame: f, key: swKey };
                 hold = 8;
@@ -159,8 +223,16 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
                 if (!ground || level.hazard(front + 2, feet + 1, 4, 3) || level.hazard(front + 8, feet - 2, 4, 3)) {
                     jump = true;
                 }
+                if (ledgeAhead(level, p)) {
+                    jump = true;
+                }
                 for (const e of game.enemies) {
                     if (e.active && e.state === 'walk' && e.px > p.px && e.px - p.px < 22 && Math.abs(e.py + e.h - feet) < 6) {
+                        jump = true;
+                    }
+                    // a box in the ground just ahead (unless stomped flat): jump over it
+                    const boxAhead = e.behindTiles && e.state !== 'flat' && e.px > p.px - 2 && e.px - p.px < 18;
+                    if (boxAhead && Math.abs(e.bottom - feet) < 6) {
                         jump = true;
                     }
                 }
@@ -190,11 +262,15 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
             }
         }
 
-        if (stuck > 120 && !springMode) {
-            // look for a bell flower behind
+        if (stuck > 120 && !springMode && !retreat) {
+            // look for a bell flower behind, or a leaf block / switch to use again
             const bell = game.bells.find((b) => level.gates.bloom && b.x < p.px && p.px - b.x < 100);
+            const trigger = findTriggerBehind(level, p);
             if (bell) {
                 springMode = { x: bell.x + 4, approach: false };
+                stuck = 0;
+            } else if (trigger && stuck < 400) {
+                retreat = trigger;
                 stuck = 0;
             } else {
                 keys.push(JUMP);

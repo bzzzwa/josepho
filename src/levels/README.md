@@ -34,8 +34,9 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | --- | --- |
 | `colors` | `{ DIRT: '#hex', GRASS: '#hex', ... }` - replaces shared colors by their names in `C` (`colors.js`). |
 | `sky` | Three rows of six hex colors (pre-dawn, sunrise, morning): the level's own sky. |
-| `tree` | `'palm'` draws palms for `T` instead of round trees. |
+| `tree` | `'palm'` draws palms for `T` instead of round trees; `'treeAutumn'` draws trees whose leaves use the level's first three stripes (they light up while those colors are on). |
 | `background` | `'sea'`: low islands and open water behind, instead of hills. |
+| `leaves` | `true`: leaves fall through the air, in the colors of the first three stripes. |
 
 Texts are Czech, in capitals, and always gender-neutral for Josepho (present tense, no gendered endings).
 `npm run test:levels` reports any letter the pixel font cannot draw.
@@ -67,6 +68,7 @@ gated tiles can be walked through). The built-in groups are `sky`, `earth`, `gre
 | `C` | cloud ledge, needs `sky` | | `T` | tree (or palm) |
 | | | | `d` | driftwood (floats on the water below it) |
 | | | | `r` | leaping fish (sits in water; stranded when drained) |
+| | | | `k` | Skatulka: a box in the ground that rattles, pops up and snaps; it bites from the side, a stomp from above shuts it for good |
 
 ### The level's own gated tiles
 
@@ -80,10 +82,22 @@ legend: {
 ```
 
 - `gate` - the color group (a stripe id or a built-in group).
-- `kind` - `'solid'` (default), `'oneway'` or `'water'`. Water whose color is on can be swum in; grey water has
-  no volume at all, so Josepho drops through it to whatever is below (build a floor under it).
+- `kind` - `'solid'` (default), `'oneway'`, `'water'` or `'timer'`. Water whose color is on can be swum in; grey
+  water has no volume at all, so Josepho drops through it to whatever is below (build a floor under it). A
+  `'timer'` is a leaf block (see below) and also needs `seconds`.
 - `look` - `'block'` (default), `'ledge'`, `'water'`, `'leaf'` or `'cloud'`. Blocks, ledges and water are drawn in
   the stripe's color; while the color is off they show as a dotted outline (water: an empty basin).
+
+### Leaf blocks (timer colors)
+
+A leaf block (`kind: 'timer'`) is always solid and always shows the color it brings, even while that color is
+off. Bumping it turns its `gate` on for `seconds` (again from full if it was already on). A bar in the HUD shows
+the time left; the last 1.5 seconds the color's tiles blink and a clock ticks, then the color is gone - and with
+it the volume of its tiles. Put a safe floor under anything that can run out beneath Josepho's feet. Timer colors
+do not survive dying or a saved game, and the flag at the end turns them on for good.
+
+When chaining colors (bump the next block while the last one still holds), start the next ledge right where the
+last one ends - a gap there is easy to overshoot when bumping at a run.
 
 ### Tide switches
 

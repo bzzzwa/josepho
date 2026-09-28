@@ -42,10 +42,11 @@ import {
     Prism,
     Shade,
     Sign,
+    Skatulka,
     Thornback,
 } from './actors.js';
 import { Background } from './background.js';
-import { C, computePalette, createChromaState, createPaletteSpec, PALETTE_SIZE } from './colors.js';
+import { C, computePalette, createChromaState, createPaletteSpec, HINT0, HINT_SHADES, PALETTE_SIZE, STRIPE0, STRIPE_SHADES } from './colors.js';
 import { fullscreen } from './fullscreen.js';
 import { Fx } from './fx.js';
 import { gfx } from './gfx.js';
@@ -62,13 +63,14 @@ const SCREEN_W = 192;
 const SCREEN_H = 108;
 const SAT_SPEED = 0.009; // a color fading in over about two seconds
 const TIDE_SPEED = 0.15; // a tide switch recolors almost at once
+const TIMER_WARN = 90; // the last frames of a timer color: its tiles blink and a clock ticks
 // how far below the top of the screen the camera keeps Josepho: more room above in taller levels, for
 // blocks and signs (a 14-row level like level 1 barely scrolls up and down at all)
 const CAMERA_ABOVE = 50;
 const CAMERA_ABOVE_TALL = 64;
 
 // Keep in step with "version" in package.json and CHANGELOG.md.
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 
 const STORY = [
     'KDYSI ZÁŘIL SVĚT LUMEN VŠEMI BARVAMI.',
@@ -201,6 +203,7 @@ export class Game {
         this.bells = [];
         this.decor = [];
         this.drifts = [];
+        this.timers = new Map(); // timer colors that are on: group -> { left, total } in frames
         this.shades = [];
         this.takenShades = new Set();
         this.greatPrism = null;
@@ -289,6 +292,8 @@ export class Game {
                 this.enemies.push(new Thornback(s.tx, s.ty));
             } else if (s.ch === 'r') {
                 this.enemies.push(new Fish(s.tx, s.ty));
+            } else if (s.ch === 'k') {
+                this.enemies.push(new Skatulka(s.tx, s.ty));
             }
         }
     }
@@ -679,6 +684,7 @@ export class Game {
         }
         this.frames++;
         this.fx.update();
+        this.updateLeaves();
         this.level.update(this.player.px, this.player.w);
         if (this.banner) {
             this.banner.t++;
@@ -694,6 +700,7 @@ export class Game {
             }
             return;
         }
+        this.updateTimers();
 
         const p = this.player;
         this.carryOnDrift(p);
@@ -736,7 +743,8 @@ export class Game {
         const p = this.player;
         for (const e of this.enemies) {
             e.update(this);
-            const dangerous = e instanceof Fish ? !e.harmless : e.state === 'walk';
+            // fish and boxes tell whether they can hurt right now; walkers are dangerous while walking
+            const dangerous = 'harmless' in e ? !e.harmless : e.state === 'walk';
             if (!e.active || !dangerous) {
                 continue;
             }
@@ -752,7 +760,10 @@ export class Game {
             if (!e.overlaps(p) || p.dead) {
                 continue;
             }
-            const stomp = e.stompable && p.vy > 0 && p.prevBottom <= e.py + 3;
+            // a stomp: falling onto its top (a box that moves up, like a Skatulka, is judged by its top before
+            // this frame, so rising under Josepho does not count as running into its side)
+            const top = Math.min(e.py, e.prevTop ?? e.py);
+            const stomp = e.stompable && p.vy > 0 && p.prevBottom <= top + 3;
             if (stomp) {
                 e.state = 'squash';
                 e.timer = 0;
@@ -885,6 +896,72 @@ export class Game {
     }
 
     /**
+     * A leaf block was bumped: its color comes on for its `seconds` (again from full, if it was already on).
+     * The last 1.5 seconds its tiles blink and a clock ticks; then the color is gone and so is its volume.
+     */
+    startTimer(tx, ty) {
+        const entry = this.level.legend[this.level.tile(tx, ty)];
+        const g = this.groupIndex(entry.gate);
+        if (g >= 0) {
+            this.satSpeed[g] = TIDE_SPEED;
+        }
+        this.turnOn([entry.gate]);
+        const total = Math.round((entry.seconds ?? 6) * 60);
+        this.timers.set(entry.gate, { left: total, total });
+        this.level.blinking.delete(entry.gate);
+        this.sound.play('spring', { pitch: 1.4 });
+        const hint = HINT0 + (this.level.stripeIndex[entry.gate] ?? 0) * HINT_SHADES;
+        this.fx.ring(tx * TILE + 4, ty * TILE + 4, 3, hint, 30);
+        this.unstick(this.player);
+    }
+
+    updateTimers() {
+        for (const [gate, t] of this.timers) {
+            t.left--;
+            if (t.left <= TIMER_WARN) {
+                this.level.blinking.add(gate);
+                if (t.left % 15 === 0) {
+                    this.sound.play('text', { pitch: t.left % 30 === 0 ? 1 : 0.8 });
+                }
+            }
+            if (t.left <= 0) {
+                this.turnOff([gate]);
+                this.level.blinking.delete(gate);
+                this.timers.delete(gate);
+                this.sound.play('bump', { pitch: 0.7 });
+            }
+        }
+    }
+
+    /** All timer colors off at once (Josepho died, the level restarts). */
+    stopTimers() {
+        for (const gate of this.timers.keys()) {
+            this.turnOff([gate]);
+            this.chroma.sat[this.groupIndex(gate)] = 0;
+        }
+        this.timers.clear();
+        this.level?.blinking.clear();
+    }
+
+    /** Falling leaves in the air, for levels whose theme asks for them. */
+    updateLeaves() {
+        if (!this.def.theme?.leaves || this.tick % 16 !== 0) {
+            return;
+        }
+        const k = Math.floor(Math.random() * 3);
+        this.fx.add({
+            kind: 'leaf',
+            x: this.camX + Math.random() * SCREEN_W,
+            y: this.camY - 2,
+            vx: -0.1,
+            vy: 0.35 + Math.random() * 0.2,
+            life: 360,
+            phase: Math.random() * 6,
+            color: STRIPE0 + k * STRIPE_SHADES + 1,
+        });
+    }
+
+    /**
      * A tide switch was bumped: the color that is on goes grey (and loses its volume), the other one comes on.
      * If Josepho would now be stuck inside a tile that just got volume, they are nudged out.
      */
@@ -994,6 +1071,8 @@ export class Game {
                 this.sound.play('bump');
                 this.sound.arpeggio([72, 76, 79, 84], 5);
             }
+        } else if (result === 'timer') {
+            this.startTimer(tx, ty);
         } else if (result === 'switch') {
             this.flipTide(tx, ty);
         } else if (result === 'break') {
@@ -1045,7 +1124,9 @@ export class Game {
         this.player.vx = 0;
         this.finaleTime = 0;
         this.freeze = 40;
-        // the end of every level: the whole palette on
+        // the end of every level: the whole palette on - timer colors too, now for good
+        this.timers.clear();
+        this.level.blinking.clear();
         this.turnOn(Object.keys(this.spec.groups));
         if (!this.fx.reducedMotion) {
             this.chroma.flash = 1;
@@ -1116,6 +1197,7 @@ export class Game {
     }
 
     respawn() {
+        this.stopTimers();
         const cp = this.checkpoint;
         this.player.reset(cp.tx * TILE + 1, (cp.ty + 1) * TILE - 10);
         this.spawnEnemies();
@@ -1268,6 +1350,14 @@ export class Game {
         for (const pe of this.petals) {
             pe.render(gfx, cx, cy);
         }
+        if (withActors) {
+            // boxes hiding in the ground: the tiles are drawn over them
+            for (const e of this.enemies) {
+                if (e.behindTiles) {
+                    e.render(gfx, cx, cy);
+                }
+            }
+        }
 
         BT.cameraSet(new Vector2i(cx, cy));
         this.level.render(gfx, cx, cy);
@@ -1305,7 +1395,9 @@ export class Game {
                 m.render(gfx, cx, cy);
             }
             for (const e of this.enemies) {
-                if (e.active) {
+                if (e.behindTiles) {
+                    e.renderFront(gfx, cx, cy);
+                } else if (e.active) {
                     e.render(gfx, cx, cy);
                 }
             }
@@ -1330,6 +1422,17 @@ export class Game {
         }
         if (this.player.glow) {
             gfx.draw('petal', 30, 2);
+        }
+        // timer colors: how much time is left, one bar each, in the color it keeps on
+        let bar = 0;
+        for (const [gate, t] of this.timers) {
+            const hint = HINT0 + (this.level.stripeIndex[gate] ?? 0) * HINT_SHADES;
+            const y = 3 + bar * 3;
+            gfx.rect(60, y, 28, 2, C.UI_DARK);
+            if (!this.level.blinking.has(gate) || Math.floor(this.tick / 5) % 2 === 0) {
+                gfx.rect(60, y, Math.ceil((28 * t.left) / t.total), 2, hint);
+            }
+            bar++;
         }
         // the level's lost shades, found or not yet
         for (let i = 0; i < this.totalShades; i++) {

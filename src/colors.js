@@ -84,6 +84,10 @@ export const PALETTE_SIZE = 128;
 export const STRIPE0 = 64;
 export const STRIPE_SHADES = 4;
 export const MAX_STRIPES = 8;
+// Each stripe also has two hint shades (base, dark) in slots 96-111 that always keep their color, for things
+// that must show which color they bring even while it is off (a leaf block of level 3).
+export const HINT0 = 96;
+export const HINT_SHADES = 2;
 // World map: up to 6 flag colors for each of 10 levels, in slots 64-123.
 export const FLAG0 = 64;
 export const FLAG_COLORS = 6;
@@ -270,6 +274,11 @@ export function createPaletteSpec({ colors = {}, sky = null, stripes = [], flags
             const slot = STRIPE0 + i * STRIPE_SHADES + k;
             fixed.set(slot, rgb);
             slotGroup[slot] = group;
+        });
+        [base, shade(base, BLACK_RGB, 0.45)].forEach((rgb, k) => {
+            const slot = HINT0 + i * HINT_SHADES + k;
+            fixed.set(slot, rgb);
+            slotGroup[slot] = GROUP.SPIRIT;
         });
     });
     flags.forEach((colorsOfFlag, i) => {
