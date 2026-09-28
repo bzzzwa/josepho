@@ -2,7 +2,9 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.4.0 - 2026-09-28
+
+Level 3 "Opadavani" (Falling leaves).
 
 ### Added
 
