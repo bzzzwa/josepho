@@ -304,7 +304,8 @@ export class Player {
         return this.anim % 80 < 40 ? 'j.idle0' : 'j.idle1';
     }
 
-    render(gfx, camX, camY, tick) {
+    /** sortColor: a palette slot for a soft glow around Josepho (the color of the last arch), or null. */
+    render(gfx, camX, camY, tick, sortColor = null) {
         if (this.invuln > 0 && Math.floor(this.invuln / 3) % 2 === 0) {
             return;
         }
@@ -323,6 +324,9 @@ export class Player {
             const aura = `${name}~`;
             const color = tick % 8 < 4 ? C.MOTE : C.MOTE_HI;
             gfx.tint(aura, x - 1, y - 1, color);
+        } else if (sortColor !== null && Math.floor(tick / 20) % 4 !== 0) {
+            // sorted by an arch: a soft glow in that color, now and then fading out for a moment
+            gfx.tint(`${name}~`, x - 1, y - 1, sortColor);
         }
         gfx.draw(name, x, y);
     }
@@ -1034,5 +1038,40 @@ export class Skatulka {
         }
         const name = this.state === 'flat' ? 'kBoxFlat' : this.open ? 'kBoxOpen' : 'kBoxClosed';
         gfx.draw(name, this.x - camX, this.bottom - this.h + this.sunk - camY);
+    }
+}
+
+// ---------------------------------------------------------------------------------------------- level 4 on
+
+/**
+ * The Sorter's arch: walking (or jumping) through it sorts Josepho - its `turnsOn` colors come on and its
+ * `turnsOff` colors go grey. It works from either side. The white arch of level 4 turns both banks on at once.
+ * Placed with its foot on the map cell of its character; 3 tiles tall.
+ */
+export class Arch {
+    h = 24;
+
+    constructor(tx, ty, entry, stripeIndex) {
+        this.entry = entry;
+        this.cx = tx * TILE + 4;
+        this.bottom = (ty + 1) * TILE;
+        this.top = this.bottom - this.h;
+        this.offset = (stripeIndex[entry.shows] ?? 0) * 2; // hint shades of the color it shows
+        this.flash = 0;
+    }
+
+    /** Did Josepho's middle cross the arch's middle this frame (either way), inside its height? */
+    crossed(p, prevCx) {
+        const through = (prevCx < this.cx && p.cx >= this.cx) || (prevCx > this.cx && p.cx <= this.cx);
+        return through && p.py < this.bottom && p.bottom > this.top;
+    }
+
+    render(gfx, camX, camY) {
+        const x = this.cx - 5 - camX;
+        gfx.draw('arch', x, this.top - camY, this.offset);
+        if (this.flash > 0) {
+            this.flash--;
+            gfx.frame(x - 1, this.top - 1 - camY, 12, this.h + 2, C.WHITE);
+        }
     }
 }

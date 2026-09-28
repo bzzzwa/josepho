@@ -27,6 +27,7 @@
 import './audio-unlock.js';
 import { bootstrap, BT, Color32, Vector2i } from 'blit386';
 import {
+    Arch,
     Bell,
     Decor,
     Driftwood,
@@ -203,6 +204,10 @@ export class Game {
         this.bells = [];
         this.decor = [];
         this.drifts = [];
+        this.arches = [];
+        this.sortedAs = null; // the color the last arch sorted Josepho to (a stripe id), or null
+        this.talks = (def.talks ?? []).map((t) => ({ ...t, done: false }));
+        this.talk = null; // the conversation being shown: { lines, line, typed }
         this.timers = new Map(); // timer colors that are on: group -> { left, total } in frames
         this.shades = [];
         this.takenShades = new Set();
@@ -253,6 +258,10 @@ export class Game {
                 case 'z':
                     this.shades.push(new Shade(s.tx, s.ty, this.shades.length));
                     break;
+                default:
+                    if (def.legend?.[s.ch]?.kind === 'arch') {
+                        this.arches.push(new Arch(s.tx, s.ty, def.legend[s.ch], this.level.stripeIndex));
+                    }
             }
         }
         this.totalShades = this.shades.length;
@@ -562,6 +571,9 @@ export class Game {
             frames: this.frames,
             maxX: this.maxX,
             tide: this.level.activeSwitch(),
+            // stripes that are on (not counting timer colors), and the arch Josepho was sorted by
+            stripesOn: (this.def.spectrum ?? []).map((s) => s.id).filter((id) => this.level.gates[id] && !this.timers.has(id)),
+            sortedAs: this.sortedAs,
         };
         writeSave(this.save);
     }
@@ -593,6 +605,22 @@ export class Game {
                     this.chroma.sat[this.groupIndex(g)] = 0;
                 }
             }
+        }
+        if (p.stripesOn && this.arches.length) {
+            // arch levels: the colors exactly as they were at the lantern
+            for (const { id } of this.def.spectrum ?? []) {
+                if (p.stripesOn.includes(id)) {
+                    this.turnOn([id], true);
+                } else if (this.level.gates[id]) {
+                    this.turnOff([id]);
+                    this.chroma.sat[this.groupIndex(id)] = 0;
+                }
+            }
+            this.sortedAs = p.sortedAs ?? null;
+        }
+        // conversations already behind the lantern are not shown again
+        for (const t of this.talks) {
+            t.done = t.at <= (p.checkpoint?.tx ?? 0);
         }
         this.moteCount = p.moteCount ?? 0;
         this.frames = p.frames ?? 0;
@@ -701,11 +729,21 @@ export class Game {
             return;
         }
         this.updateTimers();
+        if (this.talk) {
+            // a conversation holds the game still until it is read
+            this.updateTalk(inp);
+            return;
+        }
 
         const p = this.player;
+        const prevCx = p.cx;
         this.carryOnDrift(p);
         p.update(inp, this);
         this.landOnDrift(p);
+        if (!p.dead) {
+            this.updateArches(p, prevCx);
+            this.startTalks(p);
+        }
 
         if (p.dead) {
             this.updateDeath();
@@ -959,6 +997,98 @@ export class Game {
             phase: Math.random() * 6,
             color: STRIPE0 + k * STRIPE_SHADES + 1,
         });
+    }
+
+    /** Did Josepho walk or jump through an arch? */
+    updateArches(p, prevCx) {
+        for (const a of this.arches) {
+            if (a.crossed(p, prevCx)) {
+                this.passArch(a);
+            }
+        }
+    }
+
+    /**
+     * An arch sorts Josepho: its turnsOn colors come on at once, its turnsOff colors go grey (and lose their
+     * volume). Nothing happens if the colors are already that way.
+     */
+    passArch(a) {
+        const { turnsOn = [], turnsOff = [], shows = null } = a.entry;
+        const already = turnsOn.every((g) => this.level.gates[g]) && turnsOff.every((g) => !this.level.gates[g]);
+        this.sortedAs = shows;
+        if (already) {
+            return;
+        }
+        for (const name of [...turnsOn, ...turnsOff]) {
+            const g = this.groupIndex(name);
+            if (g >= 0) {
+                this.satSpeed[g] = TIDE_SPEED;
+            }
+        }
+        this.turnOff(turnsOff);
+        this.turnOn(turnsOn);
+        a.flash = 10;
+        this.sound.play('lantern', { pitch: turnsOn.length > 1 ? 1.5 : 1.1 });
+        const hint = HINT0 + (this.level.stripeIndex[shows] ?? 0) * HINT_SHADES;
+        this.fx.ring(a.cx, a.bottom - 12, 2.5, hint, 26);
+        this.unstick(this.player);
+    }
+
+    /** A conversation starts when Josepho first reaches its column. */
+    startTalks(p) {
+        for (const t of this.talks) {
+            if (!t.done && p.cx >= t.at * TILE) {
+                t.done = true;
+                this.talk = { lines: t.lines, line: 0, typed: 0 };
+                p.vx = 0;
+                return;
+            }
+        }
+    }
+
+    updateTalk(inp) {
+        const t = this.talk;
+        const text = t.lines[t.line][1];
+        if (t.typed < text.length) {
+            t.typed++;
+            if (t.typed % 3 === 0) {
+                this.sound.play('text', { pitch: t.lines[t.line][0] === 'TŘÍDIČ' ? 0.6 : 1.2 });
+            }
+        }
+        if (inp.jumpPressed || inp.tap || this.ui.confirmPressed) {
+            if (t.typed < text.length) {
+                t.typed = text.length;
+            } else if (t.line < t.lines.length - 1) {
+                t.line++;
+                t.typed = 0;
+            } else {
+                this.talk = null;
+            }
+        }
+    }
+
+    /** The conversation box: the Sorter speaks in black and white, Josepho in color. */
+    renderTalk() {
+        const t = this.talk;
+        const [who, text] = t.lines[t.line];
+        const sorter = who === 'TŘÍDIČ';
+        const lines = gfx.wrap(text, SCREEN_W - 20);
+        const h = lines.length * gfx.lineHeight + 7;
+        const top = 16;
+        gfx.rect(4, top, SCREEN_W - 8, h, sorter ? C.INK : C.UI_DARK);
+        gfx.frame(4, top, SCREEN_W - 8, h, sorter ? C.WHITE : C.SPEC0 + (Math.floor(this.tick / 6) % 6));
+        // the speaker's name on a tab above the box
+        const w = gfx.textWidth(who) + 6;
+        gfx.rect(8, top - 8, w, 8, sorter ? C.WHITE : C.J_BODY);
+        gfx.text(who, 11, top - 6, sorter ? C.INK : C.WHITE, null);
+        let left = t.typed;
+        lines.forEach((line, i) => {
+            gfx.text(line, 10, top + 5 + i * gfx.lineHeight, C.WHITE, C.INK, left);
+            left -= line.length + 1;
+        });
+        if (t.typed >= text.length && Math.floor(this.tick / 20) % 2 === 0) {
+            gfx.text('>', SCREEN_W - 12, top + h - 8, sorter ? C.WHITE : C.MOTE);
+        }
     }
 
     /**
@@ -1377,6 +1507,9 @@ export class Game {
         for (const l of this.lanterns) {
             l.render(gfx, cx, cy);
         }
+        for (const a of this.arches) {
+            a.render(gfx, cx, cy);
+        }
         for (const b of this.bells) {
             b.render(gfx, cx, cy, bloom);
         }
@@ -1401,7 +1534,8 @@ export class Game {
                     e.render(gfx, cx, cy);
                 }
             }
-            this.player.render(gfx, cx, cy, this.tick);
+            const sortColor = this.sortedAs ? HINT0 + (this.level.stripeIndex[this.sortedAs] ?? 0) * HINT_SHADES : null;
+            this.player.render(gfx, cx, cy, this.tick, sortColor);
         }
 
         BT.cameraSet(new Vector2i(cx, cy));
@@ -1450,7 +1584,9 @@ export class Game {
             gfx.text(this.banner.text, x, y, C.WHITE);
         }
 
-        if (this.activeSign) {
+        if (this.talk) {
+            this.renderTalk();
+        } else if (this.activeSign) {
             const text = this.signText(this.activeSign.index);
             const lines = gfx.wrap(text, SCREEN_W - 20);
             const h = lines.length * gfx.lineHeight + 7;

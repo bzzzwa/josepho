@@ -25,6 +25,7 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `legend` | no | The level's own color-gated tiles: `{ char: { gate, kind, look } }`. |
 | `startOn` | no | Color groups already on when the level starts, e.g. `['sky', 'earth']`. |
 | `switches` | if the map has `P` | The two color groups a tide switch flips between, e.g. `['shallow', 'deep']`. |
+| `talks` | no | Conversations: `[{ at: column, lines: [[speaker, text], ...] }]`, shown when Josepho first reaches `at`. |
 | `theme` | no | The level's look (below). |
 | `clearText` | no | Lines for the level-clear screen. |
 
@@ -82,9 +83,10 @@ legend: {
 ```
 
 - `gate` - the color group (a stripe id or a built-in group).
-- `kind` - `'solid'` (default), `'oneway'`, `'water'` or `'timer'`. Water whose color is on can be swum in; grey
+- `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'` or `'arch'`. Water whose color is on can be swum in; grey
   water has no volume at all, so Josepho drops through it to whatever is below (build a floor under it). A
-  `'timer'` is a leaf block (see below) and also needs `seconds`.
+  `'timer'` is a leaf block (see below) and also needs `seconds`. An `'arch'` is not a tile but an arch to walk
+  through (see below); it has no `gate`.
 - `look` - `'block'` (default), `'ledge'`, `'water'`, `'leaf'` or `'cloud'`. Blocks, ledges and water are drawn in
   the stripe's color; while the color is off they show as a dotted outline (water: an empty basin).
 
@@ -98,6 +100,28 @@ do not survive dying or a saved game, and the flag at the end turns them on for 
 
 When chaining colors (bump the next block while the last one still holds), start the next ledge right where the
 last one ends - a gap there is easy to overshoot when bumping at a run.
+
+### Arches
+
+An arch (`kind: 'arch'`) is 3 tiles tall, standing on the cell of its character. Walking or jumping through it,
+from either side, sorts Josepho: its `turnsOn` groups come on at once and its `turnsOff` groups go grey (and lose
+their volume). `shows` is the stripe whose color the arch is drawn in - it keeps that color while it is off - and
+the soft glow Josepho gets. The colors are saved at lanterns.
+
+```js
+A: { kind: 'arch', shows: 'blue', turnsOn: ['blue'], turnsOff: ['pink'] },
+X: { kind: 'arch', shows: 'white', turnsOn: ['blue', 'pink'], turnsOff: [] },   // both at once
+```
+
+An arch in the air over a gap is passed by jumping through it; make it tall enough that any jump across passes
+it, and put the ledge it opens where the jump lands.
+
+### Talks
+
+`talks` show a conversation box when Josepho first reaches a column; the game holds still until it is read (jump,
+Enter or a tap goes on). The speaker `TŘÍDIČ` gets a black-and-white box, anyone else a colored one. A talk behind
+the lantern a saved game starts from is not shown again. The Sorter is the only one who speaks with gendered
+words, and only rarely (see docs/pribeh.md).
 
 ### Tide switches
 

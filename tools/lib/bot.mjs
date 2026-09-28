@@ -141,6 +141,11 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
             step(game);
             continue;
         }
+        if (game.talk) {
+            // a conversation: read it (press jump every few frames)
+            step(game, f % 6 === 0 ? [JUMP] : []);
+            continue;
+        }
         const p = game.player;
         const level = game.level;
         const solidAt = (x, y) => level.collides(x, y, 1, 1, true);

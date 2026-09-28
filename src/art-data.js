@@ -609,6 +609,35 @@ const kBoxFlat = [
     'KKKKKKKKKK',
 ];
 
+// The Sorter's arch (level 4), 10 x 24: walking through it sorts Josepho to its color. Only hint shades, so a
+// palette offset shows each arch in its color, whether that color is on or not.
+const arch = [
+    '..------..',
+    '.-++++++-.',
+    '-++----++-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-+-....-+-',
+    '-++-..-++-',
+    '----..----',
+];
+
 // HUD icons.
 const hudMote = ['.nn.', 'nmmn', 'nmmn', '.nn.'];
 const hudPrismOff = ['..U..', '.UuU.', 'UuuuU', '.UuU.', '..U..'];
@@ -723,6 +752,7 @@ export const SPRITES = {
     shade: shade,
     hudShadeOn: hudShadeOn,
     hudShadeOff: hudShadeOff,
+    arch: arch,
     tmFrame: tmFrame,
     tmLeaf: tmLeaf,
     treeAutumn: treeAutumn,

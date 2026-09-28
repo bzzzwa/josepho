@@ -56,7 +56,13 @@ export function checkLevel(def, world) {
         if (TILE_CHARS.has(ch) || ENTITY_CHARS.has(ch) || BUILTIN_LEGEND[ch]) {
             errors.push(`legend character '${ch}' is already used by the game`);
         }
-        if (!groups.has(entry.gate)) {
+        if (entry.kind === 'arch') {
+            for (const g of [...(entry.turnsOn ?? []), ...(entry.turnsOff ?? []), entry.shows]) {
+                if (!groups.has(g)) {
+                    errors.push(`legend '${ch}' (arch): unknown color group '${g}'`);
+                }
+            }
+        } else if (!groups.has(entry.gate)) {
             errors.push(`legend '${ch}': unknown color group '${entry.gate}'`);
         }
         if (entry.kind === 'timer' && !(entry.seconds > 0)) {
@@ -114,6 +120,12 @@ export function checkLevel(def, world) {
         textProblems(t, `touch sign ${i}`, errors, warnings);
     }
     (def.clearText ?? []).forEach((t, i) => textProblems(t, `clearText ${i}`, errors, warnings));
+    (def.talks ?? []).forEach((t, i) => {
+        for (const [who, line] of t.lines ?? []) {
+            textProblems(who, `talk ${i} speaker`, errors, warnings);
+            textProblems(line, `talk ${i}`, errors, warnings);
+        }
+    });
     for (const p of def.prisms ?? []) {
         if (p.banner) {
             textProblems(p.banner, 'prism banner', errors, warnings);
@@ -213,5 +225,31 @@ export function checkJumps(def) {
             warnings.push(`from ${where} nothing to the right is in safe jump reach`);
         }
     }
+    // A hole one column wide that goes all the way down is almost always a slip in building the map.
+    const bottomless = (x) => [...Array(h).keys()].every((y) => !standOn(at(x, y)) && at(x, y) !== '~');
+    for (let x = 1; x < w - 1; x++) {
+        if (bottomless(x) && !bottomless(x - 1) && !bottomless(x + 1)) {
+            warnings.push(`column ${x} is a one-tile hole with no floor at all - falling in is death`);
+        }
+    }
+
+    // A walking creature on the ground just after a pit may be waiting right where Josepho lands. Often fine
+    // (it can be stomped), but worth a look: it is easy to land on it from the side.
+    const isPit = (x, y) => [1, 2, 3].every((d) => !standOn(at(x, y + d)));
+    map.forEach((row, y) =>
+        [...row].forEach((ch, x) => {
+            if (ch !== 'e' && ch !== 't') {
+                return;
+            }
+            for (let dx = 1; dx <= 8; dx++) {
+                if (!standOn(at(x - dx, y + 1))) {
+                    if (isPit(x - dx, y)) {
+                        notes.push(`the creature at column ${x} can walk to the landing after the pit at column ${x - dx}`);
+                    }
+                    return;
+                }
+            }
+        }),
+    );
     return { warnings, notes };
 }

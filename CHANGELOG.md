@@ -2,6 +2,18 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- Level 4 "Dva brehy" (Two banks), 250 tiles. Its sections follow the stripes of the trans flag: blue (the first
+  arch), pink (arches before pits), white (the lake and its island, the white prism and white bridge), pink (a
+  relay on a bridge), blue (an arch in the air, then the white arch that turns both banks on at once) and the flag.
+  The Sorter's arches sort Josepho to one color - one bank on, the other grey - with a soft glow in that color.
+- Talks: conversation boxes that hold the game until read. The Sorter speaks for the first time.
+- `npm run test:levels` warns about one-tile holes with no floor, and notes creatures that can walk to where
+  Josepho lands after a pit.
+
 ## 0.4.0 - 2026-09-28
 
 Level 3 "Opadavani" (Falling leaves).
