@@ -283,18 +283,19 @@ export class WorldMap {
         gfx.draw(glow ? 'hudPrismOn' : 'hudPrismOff', n.x - 2, n.y - 2);
     }
 
-    /** A little flag on a pole, one row per stripe (6 rows tall), colored by the level's flag slots. */
+    /**
+     * A little flag on a pole, exactly one pixel row per stripe of the level's flag (so a 5-stripe flag is 5
+     * pixels tall, a 4-stripe one 4), colored by the level's flag slots.
+     */
     drawFlag(gfx, n, i) {
         const colors = n.flag.slice(0, FLAG_COLORS);
-        const rows = 6;
         const x = n.x;
         const top = n.y - 9;
         gfx.rect(x - 1, top, 1, 10, C.INK);
-        for (let r = 0; r < rows; r++) {
-            const k = Math.min(colors.length - 1, Math.floor((r * colors.length) / rows));
-            const wave = Math.floor((this.tick / 10 + r) % 4) === 0 ? 1 : 0;
-            gfx.rect(x, top + r, 8 - wave, 1, FLAG0 + i * FLAG_COLORS + k);
-        }
+        colors.forEach((_, k) => {
+            const wave = Math.floor((this.tick / 10 + k) % 4) === 0 ? 1 : 0;
+            gfx.rect(x, top + k, 8 - wave, 1, FLAG0 + i * FLAG_COLORS + k);
+        });
     }
 
     drawPanel(gfx, touchActive) {

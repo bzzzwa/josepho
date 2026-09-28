@@ -14,6 +14,10 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
 - `npm run test:levels` warns about one-tile holes with no floor, and notes creatures that can walk to where
   Josepho lands after a pit.
 
+### Fixed
+
+- The flags on the world map have one pixel row per stripe: the trans flag no longer shows its top stripe twice.
+
 ## 0.4.0 - 2026-09-28
 
 Level 3 "Opadavani" (Falling leaves).
