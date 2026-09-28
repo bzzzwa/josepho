@@ -38,6 +38,8 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `tree` | `'palm'` draws palms for `T` instead of round trees; `'treeAutumn'` draws trees whose leaves use the level's first three stripes (they light up while those colors are on). |
 | `background` | `'sea'`: low islands and open water behind, instead of hills. |
 | `leaves` | `true`: leaves fall through the air, in the colors of the first three stripes. |
+| `tint` | `0`-`1`: how strongly the whole world takes on the color of the last arch Josepho passed (an arch that turns on two colors: the upper sky one, the lower sky the other, the land both mixed). `0.25` is a soft tint. |
+| `skyFlag` | Six hex colors, top to bottom: at the end of the level the sky shows them as the stripes of a flag for a few seconds. |
 
 Texts are Czech, in capitals, and always gender-neutral for Josepho (present tense, no gendered endings).
 `npm run test:levels` reports any letter the pixel font cannot draw.

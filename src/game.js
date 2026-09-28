@@ -47,7 +47,18 @@ import {
     Thornback,
 } from './actors.js';
 import { Background } from './background.js';
-import { C, computePalette, createChromaState, createPaletteSpec, HINT0, HINT_SHADES, PALETTE_SIZE, STRIPE0, STRIPE_SHADES } from './colors.js';
+import {
+    C,
+    computePalette,
+    createChromaState,
+    createPaletteSpec,
+    HINT0,
+    HINT_SHADES,
+    hexToRgb,
+    PALETTE_SIZE,
+    STRIPE0,
+    STRIPE_SHADES,
+} from './colors.js';
 import { fullscreen } from './fullscreen.js';
 import { Fx } from './fx.js';
 import { gfx } from './gfx.js';
@@ -206,6 +217,8 @@ export class Game {
         this.drifts = [];
         this.arches = [];
         this.sortedAs = null; // the color the last arch sorted Josepho to (a stripe id), or null
+        this.sortedBy = null; // that arch's legend entry (saved with the game, for the world's tint)
+        this.tintColors = null;
         this.talks = (def.talks ?? []).map((t) => ({ ...t, done: false }));
         this.talk = null; // the conversation being shown: { lines, line, typed }
         this.timers = new Map(); // timer colors that are on: group -> { left, total } in frames
@@ -574,6 +587,7 @@ export class Game {
             // stripes that are on (not counting timer colors), and the arch Josepho was sorted by
             stripesOn: (this.def.spectrum ?? []).map((s) => s.id).filter((id) => this.level.gates[id] && !this.timers.has(id)),
             sortedAs: this.sortedAs,
+            sortedBy: this.sortedBy,
         };
         writeSave(this.save);
     }
@@ -617,6 +631,13 @@ export class Game {
                 }
             }
             this.sortedAs = p.sortedAs ?? null;
+            this.sortedBy = p.sortedBy ?? null;
+            if (this.sortedBy) {
+                this.setTintFor(this.sortedBy);
+                this.chroma.tint.amount = this.def.theme?.tint ?? 0;
+                this.chroma.tint.rgb = [...this.tintColors[0]];
+                this.chroma.tint.rgbLow = [...this.tintColors[1]];
+            }
         }
         // conversations already behind the lantern are not shown again
         for (const t of this.talks) {
@@ -1016,6 +1037,8 @@ export class Game {
         const { turnsOn = [], turnsOff = [], shows = null } = a.entry;
         const already = turnsOn.every((g) => this.level.gates[g]) && turnsOff.every((g) => !this.level.gates[g]);
         this.sortedAs = shows;
+        this.sortedBy = a.entry;
+        this.setTintFor(a.entry);
         if (already) {
             return;
         }
@@ -1388,6 +1411,42 @@ export class Game {
         } else if (this.state === 'clear') {
             ch.dawn += (1 - ch.dawn) * 0.02;
         }
+        this.updateTint();
+    }
+
+    /**
+     * Levels with `theme.tint`: the world takes on a soft tint of the color an arch sorted Josepho to (both
+     * colors for an arch that turns on two - one above in the sky, one below). At the end of the level the
+     * tint fades and, with `theme.skyFlag`, the sky shows the flag's stripes for a moment.
+     */
+    updateTint() {
+        const ch = this.chroma;
+        const strength = this.def?.theme?.tint ?? 0;
+        const playing = this.state === 'play' && this.level;
+        const target = playing && this.finaleTime < 0 && this.tintColors ? strength : 0;
+        ch.tint.amount += (target - ch.tint.amount) * 0.04;
+        if (this.tintColors) {
+            const [hi, lo] = this.tintColors;
+            for (let k = 0; k < 3; k++) {
+                ch.tint.rgb[k] += (hi[k] - ch.tint.rgb[k]) * 0.08;
+                ch.tint.rgbLow[k] += (lo[k] - ch.tint.rgbLow[k]) * 0.08;
+            }
+        }
+        // the flag in the sky: comes in with the end of the level, holds, then gives way to the plain colors
+        const flag = this.def?.theme?.skyFlag;
+        if (flag && (this.state === 'play' || this.state === 'clear') && this.finaleTime >= 0) {
+            ch.skyFlag.colors ??= flag.map(hexToRgb);
+            const t = this.state === 'clear' ? 400 + this.stateTime : this.finaleTime;
+            const shown = t < 40 ? t / 40 : t < 220 ? 1 : Math.max(0, 1 - (t - 220) / 120);
+            ch.skyFlag.amount = shown;
+        }
+    }
+
+    /** The tint an arch gives the world: its color, or two colors if it turns two on. */
+    setTintFor(entry) {
+        const colorOf = (id) => hexToRgb((this.def.spectrum ?? []).find((s) => s.id === id)?.color ?? '#ffffff');
+        const on = entry.turnsOn ?? [];
+        this.tintColors = on.length >= 2 ? [colorOf(on[0]), colorOf(on[1])] : [colorOf(entry.shows), colorOf(entry.shows)];
     }
 
     writePalette(pal, force) {

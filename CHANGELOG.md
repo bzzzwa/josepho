@@ -6,10 +6,15 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
 
 ### Added
 
-- Level 4 "Dva brehy" (Two banks), 250 tiles. Its sections follow the stripes of the trans flag: blue (the first
-  arch), pink (arches before pits), white (the lake and its island, the white prism and white bridge), pink (a
-  relay on a bridge), blue (an arch in the air, then the white arch that turns both banks on at once) and the flag.
+- Level 4 "Dva brehy" (Two banks), 273 tiles and 22 rows tall. Its sections follow the stripes of the trans flag:
+  blue (rolling hills, the first arch on a hilltop), pink (a canyon, then blue ledges up a cliff face to a
+  plateau), white (the lake: stepping stones to the island with the white prism, white stones beyond), pink (a
+  cave with the relay on a bridge), blue (a hilltop, two arches stacked in the air over a wide pit, and the valley
+  under the white arch, whose stones need both colors at once) and the flag.
   The Sorter's arches sort Josepho to one color - one bank on, the other grey - with a soft glow in that color.
+- The world takes on a soft tint of the last arch's color (`theme.tint`): blue, pink, or after the white arch
+  both - blue above in the sky, pink below, the land mixed. At the end the sky shows the flag's stripes for a
+  few seconds (`theme.skyFlag`).
 - Talks: conversation boxes that hold the game until read. The Sorter speaks for the first time.
 - `npm run test:levels` warns about one-tile holes with no floor, and notes creatures that can walk to where
   Josepho lands after a pit.
