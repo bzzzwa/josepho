@@ -645,6 +645,15 @@ const flyWings0 = ['77......77..', '787....787..', '.7877.787...', '..777777....
 const flyWings1 = ['............', '............', '.7777.7777..', '788877888877', '.77....77...'];
 const flyWingsFold = ['............', '............', '...77.77....', '...7777.....', '............'];
 
+// Aura tiles (level 5), lit: a ledge and a block in a stripe's hint shades.
+const hLedge = ['++++++++', '+------+', '-+-..-+-', '........', '........', '........', '........', '........'];
+const hBlock = ['++++++++', '+------+', '+-++++-+', '+-+--+-+', '+-+--+-+', '+-++++-+', '+------+', '--------'];
+
+// A freed greyling: its colors back (the rainbow slots, which slowly slide), glowing as it runs.
+const recolor = (rows) => rows.map((r) => r.replace(/g/g, '2').replace(/h/g, '4').replace(/i/g, '5'));
+const greylingFree0 = recolor(greyling0);
+const greylingFree1 = recolor(greyling1);
+
 // HUD icons.
 const hudMote = ['.nn.', 'nmmn', 'nmmn', '.nn.'];
 const hudPrismOff = ['..U..', '.UuU.', 'UuuuU', '.UuU.', '..U..'];
@@ -760,6 +769,10 @@ export const SPRITES = {
     hudShadeOn: hudShadeOn,
     hudShadeOff: hudShadeOff,
     arch: arch,
+    hLedge: hLedge,
+    hBlock: hBlock,
+    greylingFree0: greylingFree0,
+    greylingFree1: greylingFree1,
     flyBody: flyBody,
     flyWings0: flyWings0,
     flyWings1: flyWings1,
@@ -819,6 +832,8 @@ export const MIRRORED = [
     'greyling1',
     'fish0',
     'fish1',
+    'greylingFree0',
+    'greylingFree1',
     'flyBody',
     'thorn0',
     'thorn1',

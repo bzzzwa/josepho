@@ -21,7 +21,9 @@ export const ENTITY_CHARS = new Set([
 //   kind  'solid' (a full block), 'oneway' (a ledge you can jump up through), 'water' (swimmable),
 //         'timer' (a leaf block: always solid; bumping it turns its gate on for `seconds`), or
 //         'arch' (not a tile: an arch to walk through - see the Arch object in actors.js), or
-//         'flyer' (not a tile: a flutterer whose wings are the gate's color - see Flyer in actors.js)
+//         'flyer' (not a tile: a flutterer whose wings are the gate's color - see Flyer in actors.js), or
+//         'aura' (a ledge - or with look 'block' a block - that has volume only in light: near Josepho, a lit
+//         lantern or a freed greyling; drawn in the gate's color while lit)
 //   gate  the color group that must be on for the tile to have volume (a timer: the group it turns on)
 //   look  which art to draw: leaf, cloud, block, ledge, water
 export const BUILTIN_LEGEND = {
@@ -75,6 +77,8 @@ export class Level {
         this.gates = {};
         // groups about to run out (timer colors): their tiles blink
         this.blinking = new Set();
+        // lights for aura tiles, set by the game every frame: [{ x, y, r }] in pixels
+        this.lights = [];
         // tile bounce animations: key "x,y" -> frames left
         this.bumps = new Map();
         // tiles changed while playing ("x,y" -> new character), so a saved game can put them back
@@ -125,13 +129,41 @@ export class Level {
         return !!entry && entry.kind === kind && !!this.gates[entry.gate];
     }
 
-    /** Does this map character block movement from every side right now? */
-    isSolidTile(ch) {
-        return SOLID.has(ch) || this.gatedOn(ch, 'solid') || this.legend[ch]?.kind === 'timer';
+    /**
+     * Does this map character block movement from every side right now? With a position (tile coordinates),
+     * aura blocks count only while lit; without one they count as there.
+     */
+    isSolidTile(ch, tx, ty) {
+        if (SOLID.has(ch) || this.gatedOn(ch, 'solid') || this.legend[ch]?.kind === 'timer') {
+            return true;
+        }
+        const e = this.legend[ch];
+        return e?.kind === 'aura' && e.look === 'block' && this.litAt(tx, ty);
     }
 
-    isOneWay(ch) {
-        return ch === '=' || this.gatedOn(ch, 'oneway');
+    /** Is the middle of this tile in light? (No position: yes - "is the tile there at all".) */
+    litAt(tx, ty) {
+        if (tx === undefined) {
+            return true;
+        }
+        const x = tx * TILE + 4;
+        const y = ty * TILE + 4;
+        for (const l of this.lights) {
+            const dx = x - l.x;
+            const dy = y - l.y;
+            if (dx * dx + dy * dy <= l.r * l.r) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    isOneWay(ch, tx, ty) {
+        if (ch === '=' || this.gatedOn(ch, 'oneway')) {
+            return true;
+        }
+        const e = this.legend[ch];
+        return e?.kind === 'aura' && e.look !== 'block' && this.litAt(tx, ty);
     }
 
     /** Is the point (in pixels) inside water whose color is on? Grey water has no volume at all. */
@@ -159,10 +191,10 @@ export class Level {
                     return true; // the world's side walls
                 }
                 const ch = this.tile(tx, ty);
-                if (this.isSolidTile(ch)) {
+                if (this.isSolidTile(ch, tx, ty)) {
                     return true;
                 }
-                if (movingDown && !dropThrough && ty === y1 && this.isOneWay(ch) && py + h - 1 === ty * TILE) {
+                if (movingDown && !dropThrough && ty === y1 && this.isOneWay(ch, tx, ty) && py + h - 1 === ty * TILE) {
                     return true;
                 }
             }
@@ -174,7 +206,7 @@ export class Level {
     onOneWay(px, py, w, h) {
         const ty = Math.floor((py + h) / TILE);
         for (let tx = Math.floor(px / TILE); tx <= Math.floor((px + w - 1) / TILE); tx++) {
-            if (this.isOneWay(this.tile(tx, ty))) {
+            if (this.isOneWay(this.tile(tx, ty), tx, ty)) {
                 return true;
             }
         }
@@ -355,6 +387,17 @@ export class Level {
     drawGated(gfx, entry, tx, x, y) {
         // about to run out: blink between the tile and its ghost
         const on = !!this.gates[entry.gate] && !(this.blinking.has(entry.gate) && Math.floor(this.tick / 5) % 2);
+        if (entry.kind === 'aura') {
+            // lit: its color (hint shades - they keep their color); dark: a faint dotted outline
+            const ty = Math.floor((y + 4) / TILE);
+            const block = entry.look === 'block';
+            if (this.litAt(tx, ty)) {
+                gfx.draw(block ? 'hBlock' : 'hLedge', x, y, (this.stripeIndex[entry.gate] ?? 0) * HINT_SHADES);
+            } else {
+                gfx.draw(block ? 'sBlockGhost' : 'sLedgeGhost', x, y, (this.stripeIndex[entry.gate] ?? 0) * STRIPE_SHADES);
+            }
+            return;
+        }
         if (entry.kind === 'timer') {
             gfx.draw('tmFrame', x, y);
             gfx.draw('tmLeaf', x, y, (this.stripeIndex[entry.gate] ?? 0) * HINT_SHADES);

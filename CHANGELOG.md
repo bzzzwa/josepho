@@ -2,6 +2,18 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- Level 5 "Archiv" (The archive), 256 tiles: the Sorter's archive under the mountains, dark but for the light
+  Josepho carries. Aura ledges in the colors of heat (red to blue-white) have volume only in light - near Josepho,
+  a lit lantern or a freed greyling - so bridges and stairs unfold ahead and fade behind. Taught in four steps: aura
+  stairs, an aura bridge, a freed greyling lighting the way, a climb up a dark shaft. At the flag the light spreads
+  until the dark is gone.
+- Greylings are sorted beings: from level 5 on a stomp frees a greyling instead of squashing it. It gets its
+  colors back, glows, runs off ahead and leaves a mote. The first one says thank you.
+
 ## 0.5.0 - 2026-09-29
 
 Level 4 "Dva brehy" (Two banks).

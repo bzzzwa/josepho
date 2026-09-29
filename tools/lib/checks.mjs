@@ -152,8 +152,11 @@ export function checkJumps(def) {
     const w = map[0].length;
     const h = map.length;
     const at = (x, y) => (y < 0 || y >= h || x < 0 || x >= w ? '.' : map[y][x]);
-    const solid = (ch) => '#RB?GUP'.includes(ch) || legend[ch]?.kind === 'solid' || legend[ch]?.kind === 'timer';
-    const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway';
+    // aura tiles count as there: Josepho's own light reaches whatever is near enough to jump to
+    const aura = (ch) => legend[ch]?.kind === 'aura';
+    const solid = (ch) =>
+        '#RB?GUP'.includes(ch) || legend[ch]?.kind === 'solid' || legend[ch]?.kind === 'timer' || (aura(ch) && legend[ch].look === 'block');
+    const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway' || aura(ch);
     const free = (ch) => !solid(ch);
 
     // standable surfaces per column, joined into flat segments

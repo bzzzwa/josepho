@@ -26,6 +26,8 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `startOn` | no | Color groups already on when the level starts, e.g. `['sky', 'earth']`. |
 | `switches` | if the map has `P` | The two color groups a tide switch flips between, e.g. `['shallow', 'deep']`. |
 | `talks` | no | Conversations: `[{ at: column, lines: [[speaker, text], ...] }]`, shown when Josepho first reaches `at`. |
+| `freeGreylings` | no | `true` (level 5 on): a stomp frees a greyling instead of squashing it - it gets its colors back, glows, runs off and leaves a mote. |
+| `freeTalk` | no | Lines `[[speaker, text], ...]` shown when the first greyling of the level is freed. |
 | `theme` | no | The level's look (below). |
 | `finale` | no | The banner when Josepho reaches the flag - what came back, in the level's own words. Default `SPEKTRUM JE ZPĚT`. |
 | `clearText` | no | Lines for the level-clear screen. |
@@ -37,7 +39,8 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `colors` | `{ DIRT: '#hex', GRASS: '#hex', ... }` - replaces shared colors by their names in `C` (`colors.js`). |
 | `sky` | Three rows of six hex colors (pre-dawn, sunrise, morning): the level's own sky. |
 | `tree` | `'palm'` draws palms for `T` instead of round trees; `'treeAutumn'` draws trees whose leaves use the level's first three stripes (they light up while those colors are on). |
-| `background` | `'sea'`: low islands and open water behind, instead of hills. |
+| `background` | `'sea'`: low islands and open water behind, instead of hills; `'archive'`: a dark back wall with shelves of grey boxes. |
+| `dark` | `true`: the level is dark except around the lights (Josepho, lit lanterns, freed greylings). At the flag the light spreads until the dark is gone. |
 | `leaves` | `true`: leaves fall through the air, in the colors of the first three stripes. |
 | `tint` | `0`-`1`: how strongly the whole world takes on the color of the last arch Josepho passed (an arch that turns on two colors: the upper sky one, the lower sky the other, the land both mixed). `0.25` is a soft tint. |
 | `skyFlag` | Six hex colors, top to bottom: at the end of the level the sky shows them as the stripes of a flag for a few seconds. |
@@ -86,7 +89,7 @@ legend: {
 ```
 
 - `gate` - the color group (a stripe id or a built-in group).
-- `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'`, `'arch'` or `'flyer'`. Water whose color is on can be swum in; grey
+- `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'`, `'arch'`, `'flyer'` or `'aura'`. Water whose color is on can be swum in; grey
   water has no volume at all, so Josepho drops through it to whatever is below (build a floor under it). A
   `'timer'` is a leaf block (see below) and also needs `seconds`. An `'arch'` is not a tile but an arch to walk
   through (see below); it has no `gate`. A `'flyer'` is not a tile either but a flutterer (see below).
@@ -118,6 +121,14 @@ X: { kind: 'arch', shows: 'white', turnsOn: ['blue', 'pink'], turnsOff: [] },   
 
 An arch in the air over a gap is passed by jumping through it; make it tall enough that any jump across passes
 it, and put the ledge it opens where the jump lands.
+
+### Aura tiles
+
+An aura tile (`kind: 'aura'`, `look: 'ledge'` or `'block'`) has volume only while its middle is in light: within 4
+tiles of Josepho, or near a lit lantern or a freed greyling. Lit, it shows in its `gate` color (whether that color
+is on or not); dark, it is a faint dotted outline. So bridges and stairs unfold in front of Josepho and fade behind.
+Keep aura jumps well inside Josepho's own light - the far ledge of a jump must be lit by the time Josepho gets
+there, which it is within 4 tiles.
 
 ### Flutterers
 

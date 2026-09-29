@@ -424,7 +424,43 @@ export class Greyling extends Walker {
         super(tx, ty, 8, 7, 6);
     }
 
+    /**
+     * Level 5 on: a stomp frees a greyling instead of squashing it. It gets its colors back, glows (a light for
+     * aura tiles) and runs off ahead; after a while it is gone - home, wherever that is.
+     */
+    free() {
+        this.state = 'freed';
+        this.timer = 0;
+        this.vx = 22;
+        this.vy = -30;
+    }
+
     update(game) {
+        if (this.state === 'freed') {
+            this.anim++;
+            this.timer++;
+            this.vy = Math.min(this.vy + 5, 48);
+            const res = moveBody(game.level, this);
+            if (res.hitX) {
+                // a wall: hop over it if it is low, turn around if not
+                if (res.landed || this.vy === 0) {
+                    this.vy = -52;
+                }
+                if (this.timer % 90 === 89) {
+                    this.vx = -this.vx;
+                }
+            }
+            if (res.landed) {
+                this.vy = 0;
+            }
+            if (this.timer > 900 || this.py > game.level.ph + 20) {
+                this.alive = false;
+            }
+            if (this.anim % 12 === 0) {
+                game.fx.add({ kind: 'px', x: this.px + 4, y: this.py + 2, vx: 0, vy: -0.3, life: 30, color: C.SPEC0 + (this.anim % 6) });
+            }
+            return;
+        }
         super.update(game);
         // they exhale grey vapor: the color they drank
         if (this.active && this.state === 'walk' && this.anim % 40 === 0) {
@@ -437,6 +473,11 @@ export class Greyling extends Walker {
         const y = this.py + this.h - 8 - camY;
         if (this.state === 'squash') {
             gfx.draw('greylingFlat', x, y);
+            return;
+        }
+        if (this.state === 'freed') {
+            const name = (Math.floor(this.anim / 5) % 2 ? 'greylingFree1' : 'greylingFree0') + (this.vx > 0 ? '<' : '');
+            gfx.draw(name, x, y);
             return;
         }
         let name = Math.floor(this.anim / 10) % 2 ? 'greyling1' : 'greyling0';
