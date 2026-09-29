@@ -424,7 +424,43 @@ export class Greyling extends Walker {
         super(tx, ty, 8, 7, 6);
     }
 
+    /**
+     * Level 5 on: a stomp frees a greyling instead of squashing it. It gets its colors back, glows (a light for
+     * aura tiles) and runs off ahead; after a while it is gone - home, wherever that is.
+     */
+    free() {
+        this.state = 'freed';
+        this.timer = 0;
+        this.vx = 22;
+        this.vy = -30;
+    }
+
     update(game) {
+        if (this.state === 'freed') {
+            this.anim++;
+            this.timer++;
+            this.vy = Math.min(this.vy + 5, 48);
+            const res = moveBody(game.level, this);
+            if (res.hitX) {
+                // a wall: hop over it if it is low, turn around if not
+                if (res.landed || this.vy === 0) {
+                    this.vy = -52;
+                }
+                if (this.timer % 90 === 89) {
+                    this.vx = -this.vx;
+                }
+            }
+            if (res.landed) {
+                this.vy = 0;
+            }
+            if (this.timer > 900 || this.py > game.level.ph + 20) {
+                this.alive = false;
+            }
+            if (this.anim % 12 === 0) {
+                game.fx.add({ kind: 'px', x: this.px + 4, y: this.py + 2, vx: 0, vy: -0.3, life: 30, color: C.SPEC0 + (this.anim % 6) });
+            }
+            return;
+        }
         super.update(game);
         // they exhale grey vapor: the color they drank
         if (this.active && this.state === 'walk' && this.anim % 40 === 0) {
@@ -437,6 +473,11 @@ export class Greyling extends Walker {
         const y = this.py + this.h - 8 - camY;
         if (this.state === 'squash') {
             gfx.draw('greylingFlat', x, y);
+            return;
+        }
+        if (this.state === 'freed') {
+            const name = (Math.floor(this.anim / 5) % 2 ? 'greylingFree1' : 'greylingFree0') + (this.vx > 0 ? '<' : '');
+            gfx.draw(name, x, y);
             return;
         }
         let name = Math.floor(this.anim / 10) % 2 ? 'greyling1' : 'greyling0';
@@ -1205,5 +1246,99 @@ export class Flyer {
         const wings = up ? (Math.floor(this.t / 6) % 2 ? 'flyWings0' : 'flyWings1') : 'flyWingsFold';
         gfx.draw(wings, x - 2, y - 3, this.offset);
         gfx.draw(this.dir > 0 ? 'flyBody<' : 'flyBody', x, y);
+    }
+}
+
+// ---------------------------------------------------------------------------------------------- level 5 on
+
+/**
+ * A freed greyling that stays with Josepho in a dark level (up to three): it flies a little ahead and above,
+ * the way Josepho faces, a bit behind in time, and lights the way. At the end of the level it flies home.
+ */
+export class Companion {
+    // where each of the three flies, relative to Josepho: ahead (in the direction Josepho faces) and up
+    static SLOTS = [
+        { ahead: 18, up: -14 },
+        { ahead: 30, up: -22 },
+        { ahead: 10, up: -26 },
+    ];
+
+    constructor(x, y, slot) {
+        this.x = x;
+        this.y = y;
+        this.slot = slot;
+        this.t = slot * 40;
+        this.dir = 1;
+        this.leaving = false;
+    }
+
+    get cx() {
+        return this.x + 4;
+    }
+
+    get cy() {
+        return this.y + 3;
+    }
+
+    update(p) {
+        this.t++;
+        if (this.leaving) {
+            // home: up and away, waving
+            this.y -= 1.2;
+            this.x += Math.sin(this.t * 0.2) * 0.8;
+            return;
+        }
+        const s = Companion.SLOTS[this.slot];
+        const tx = p.cx + p.facing * s.ahead - 4;
+        const ty = p.py + s.up + Math.sin(this.t * 0.07 + this.slot * 2) * 3;
+        this.dir = tx > this.x + 1 ? 1 : tx < this.x - 1 ? -1 : this.dir;
+        this.x += (tx - this.x) * 0.07;
+        this.y += (ty - this.y) * 0.07;
+    }
+
+    render(gfx, camX, camY) {
+        const x = Math.round(this.x) - 1 - camX;
+        const y = Math.round(this.y) - 1 - camY;
+        // little wings of light, flapping
+        const flap = Math.floor(this.t / 5) % 2;
+        gfx.pixel(x - 1, y + 2 - flap, C.WHITE);
+        gfx.pixel(x - 2, y + 1 - flap * 2, C.WHITE);
+        gfx.pixel(x + 10, y + 2 - flap, C.WHITE);
+        gfx.pixel(x + 11, y + 1 - flap * 2, C.WHITE);
+        gfx.draw((flap ? 'greylingFree1' : 'greylingFree0') + (this.dir > 0 ? '<' : ''), x, y);
+    }
+}
+
+/**
+ * A firefly in a dark level: drifts slowly around its home and glows, pulsing. Only for the mood - its light
+ * does not give aura tiles their volume.
+ */
+export class Firefly {
+    constructor(x, y, seed) {
+        this.homeX = x;
+        this.homeY = y;
+        this.t = seed * 97;
+        this.x = x;
+        this.y = y;
+    }
+
+    update() {
+        this.t++;
+        this.x = this.homeX + Math.sin(this.t * 0.011) * 18 + Math.sin(this.t * 0.037) * 4;
+        this.y = this.homeY + Math.sin(this.t * 0.017) * 10;
+    }
+
+    /** Its glow radius right now (pixels): a slow pulse. */
+    get glow() {
+        return 7 + Math.sin(this.t * 0.05) * 3;
+    }
+
+    render(gfx, camX, camY) {
+        const x = Math.round(this.x) - camX;
+        const y = Math.round(this.y) - camY;
+        gfx.pixel(x, y, C.MOTE_HI);
+        if (this.glow > 8) {
+            gfx.pixel(x + 1, y, C.MOTE);
+        }
     }
 }

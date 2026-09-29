@@ -2,6 +2,32 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.6.0 - 2026-09-29
+
+Level 5 "Archiv" (The archive).
+
+### Added
+
+- Level 5 "Archiv" (The archive), 256 tiles: the Sorter's archive under the mountains, dark but for the light
+  Josepho carries. Aura ledges in the colors of heat (red to blue-white) have volume only in light - near Josepho,
+  a lit lantern or a freed greyling - so bridges and stairs unfold ahead and fade behind. Taught in four steps: aura
+  stairs, an aura bridge, a freed greyling lighting the way, a climb up a dark shaft. At the flag the light spreads
+  until the dark is gone.
+- Greylings are sorted beings: from level 5 on a stomp frees a greyling instead of squashing it. It gets its
+  colors back and leaves a mote; the first one says thank you. A freed greyling never comes back grey.
+- In a dark level a freed greyling flies along with Josepho, a little ahead and above, and lights the way (up to
+  three). They stay after Josepho dies and fly home at the flag. In level 5 dark stepping stones show why: alone,
+  Josepho sees only the nearest ones.
+- Fireflies drift about the archive, glowing softly - only for the mood.
+
+### Fixed
+
+- Everything the game draws as a rectangle, a line or a pixel (the dark of level 5, the boxes of signs and talks,
+  HUD bars, map panels, sparks) now stays in drawing order. BLIT386's renderer draws all primitives of a frame
+  before all sprites, so these used to end up under every sprite - the dark of level 5 covered only the background,
+  not the ground. They are drawn with a solid sprite instead, and the test double now layers draws like the engine.
+- The dark of level 5 is almost black: only faint outlines show through, so the lights stand out.
+
 ## 0.5.0 - 2026-09-29
 
 Level 4 "Dva brehy" (Two banks).

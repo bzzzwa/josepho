@@ -122,6 +122,10 @@ export class Background {
             this.renderSea(gfx, camX, tick);
             return;
         }
+        if (this.style === 'archive') {
+            this.renderArchive(gfx, camX);
+            return;
+        }
 
         // Mid hills.
         const mo = Math.floor(camX * MID_SPEED);
@@ -131,6 +135,26 @@ export class Background {
             gfx.line(sx2, top, sx2, SCREEN_H - 1, C.MID);
             if (this.mid[i + 1] > top) {
                 gfx.pixel(sx2, top, C.MID_HI);
+            }
+        }
+    }
+
+    /**
+     * The Sorter's archive: a dark back wall with shelves of grey boxes, sorted by size, sliding slowly with
+     * the parallax. (Instead of the sky, far land and hills.)
+     */
+    renderArchive(gfx, camX) {
+        gfx.rect(0, 0, SCREEN_W, SCREEN_H, C.SHADE);
+        const off = Math.floor(camX * 0.4);
+        for (let shelf = 0; shelf < 6; shelf++) {
+            const y = 22 + shelf * 26;
+            gfx.rect(0, y, SCREEN_W, 2, C.DIRT_DK);
+            for (let sx = -(off % 12) - 12; sx < SCREEN_W + 12; sx += 12) {
+                const k = Math.abs(Math.floor((sx + off) / 12) * 7 + shelf * 13) % 5;
+                const h = 6 + k * 2;
+                gfx.rect(sx + 1, y - h, 9, h, k % 2 ? C.GREY_DK : C.GREY);
+                gfx.rect(sx + 1, y - h, 9, 1, C.GREY_LT);
+                gfx.rect(sx + 4, y - h + 2, 3, 1, C.INK);
             }
         }
     }
