@@ -2,7 +2,9 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.5.0 - 2026-09-29
+
+Level 4 "Dva brehy" (Two banks).
 
 ### Added
 
@@ -19,6 +21,8 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
   both - blue above in the sky, pink below, the land mixed. At the end the sky shows the flag's stripes for a
   few seconds (`theme.skyFlag`).
 - Talks: conversation boxes that hold the game until read. The Sorter speaks for the first time.
+- Each level has its own banner at the flag (`finale`), saying what came back: MOŘE MÁ ZASE HLOUBKU, BARVY
+  PODZIMU JSOU ZPĚT, BŘEHY JSOU SPOJENÉ (level 1 keeps SPEKTRUM JE ZPĚT).
 - `npm run test:levels` warns about one-tile holes with no floor and about pits with no way out, and notes
   creatures that can walk to where Josepho lands after a pit.
 

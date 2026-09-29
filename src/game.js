@@ -83,7 +83,7 @@ const CAMERA_ABOVE = 50;
 const CAMERA_ABOVE_TALL = 64;
 
 // Keep in step with "version" in package.json and CHANGELOG.md.
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';
 
 const STORY = [
     'KDYSI ZÁŘIL SVĚT LUMEN VŠEMI BARVAMI.',
@@ -1296,7 +1296,8 @@ export class Game {
         this.sound.play('prism');
         this.sound.arpeggio([62, 66, 69, 74, 78, 81, 86, 90], 5, 'bell', 1);
         this.sound.layers = 4;
-        this.banner = { text: 'SPEKTRUM JE ZPĚT', t: 0 };
+        // each level says in its own words what came back (a scale, a flag...), the spectrum by default
+        this.banner = { text: this.def.finale ?? 'SPEKTRUM JE ZPĚT', t: 0 };
     }
 
     updateFinale() {

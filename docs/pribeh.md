@@ -46,15 +46,33 @@ jak se to děje.
 | # | Level | Spektrum | Nová mechanika | Nový prvek |
 | --- | --- | --- | --- | --- |
 | 1 | Svítání *(hotovo)* | úsvit, duha | hranoly vracejí barvy natrvalo | - |
-| 2 | Mělčiny | hloubka moře | přepínač: jedna barva zapnutá, druhá vypnutá | plavání, plovoucí dřeva |
-| 3 | Opadávání | podzimní listí | barva vydrží jen chvíli, pak zešedne | Škatulky (pasti ze země) |
-| 4 | Dva břehy | trans vlajka | protilehlé barvy a bílý most | brány podle barvy |
+| 2 | Mělčiny *(hotovo)* | hloubka moře | přepínač: jedna barva zapnutá, druhá vypnutá | plavání, plovoucí dřeva |
+| 3 | Opadávání *(hotovo)* | podzimní listí | barva vydrží jen chvíli, pak zešedne | Škatulky (pasti ze země) |
+| 4 | Dva břehy *(hotovo)* | trans vlajka | protilehlé barvy a bílý most | brány podle barvy, třepotky |
 | 5 | Archiv | teplota světla (žár) | Josephova aura barví okolí | tma, kolem Josepha světlo |
 | 6 | Úřad | bi vlajka | míchání: dvě barvy dohromady dají třetí | Razítka, třídicí pásy |
 | 7 | Polární záře | polární záře | barvy se vlní v rytmu | led, vítr |
 | 8 | Věž protikladů | nebinární vlajka (Josephova) | Odbarvovači šedí svět, Josepho ho barví zpět | kopání krabic |
 | 9 | Šedá vlna | odstíny lidí *(nebo viditelné světlo)* | všechno dohromady | honička: šedá vlna zezadu |
 | 10 | Třídírna | všechna zachráněná | souboj s Třídičem | Třídič |
+
+### Hláška na konci levelu
+
+Když Josepho dojde k praporu, objeví se krátká věta o tom, co se vrátilo - vlastními slovy levelu (pole
+`finale` v souboru levelu). Tón: krátce a radostně, klidně s ozvěnou cedule z téhož levelu.
+
+| # | Hláška |
+| --- | --- |
+| 1 | SPEKTRUM JE ZPĚT |
+| 2 | MOŘE MÁ ZASE HLOUBKU |
+| 3 | BARVY PODZIMU JSOU ZPĚT |
+| 4 | BŘEHY JSOU SPOJENÉ |
+| 5 | SVĚTLO JE ZPĚT *(návrh)* |
+| 6 | BARVY SE ZASE MÍSÍ *(návrh)* |
+| 7 | NEBE ZASE TANČÍ *(návrh)* |
+| 8 | JSEM TADY *(návrh, ozvěna Josephovy věty)* |
+| 9 | *podle zvoleného spektra* |
+| 10 | SVĚT JE ZASE CELÝ *(návrh)* |
 
 ## Dějství I - Barvy (levely 1-3)
 

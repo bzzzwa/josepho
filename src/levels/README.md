@@ -27,6 +27,7 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `switches` | if the map has `P` | The two color groups a tide switch flips between, e.g. `['shallow', 'deep']`. |
 | `talks` | no | Conversations: `[{ at: column, lines: [[speaker, text], ...] }]`, shown when Josepho first reaches `at`. |
 | `theme` | no | The level's look (below). |
+| `finale` | no | The banner when Josepho reaches the flag - what came back, in the level's own words. Default `SPEKTRUM JE ZPĚT`. |
 | `clearText` | no | Lines for the level-clear screen. |
 
 ### theme

@@ -90,5 +90,8 @@ export const LEVEL4 = {
 
     prisms: [{ turnsOn: ['white'], banner: 'VRACÍ SE BÍLÁ' }],
 
+    // the banner when the flag is reached
+    finale: 'BŘEHY JSOU SPOJENÉ',
+
     clearText: ['OBA BŘEHY SE DOTÝKAJÍ A MEZI NIMI SVÍTÍ BÍLÁ.', 'TŘÍDIČ POPRVÉ PROMLUVIL. A NEZNĚL JEN ZLE. ZNĚL VYSTRAŠENĚ.'],
 };

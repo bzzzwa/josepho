@@ -120,6 +120,12 @@ export function checkLevel(def, world) {
         textProblems(t, `touch sign ${i}`, errors, warnings);
     }
     (def.clearText ?? []).forEach((t, i) => textProblems(t, `clearText ${i}`, errors, warnings));
+    if (def.finale) {
+        textProblems(def.finale, 'finale', errors, warnings);
+        if (def.finale.length > 40) {
+            warnings.push(`finale '${def.finale}' is long for the banner (40 letters at most)`);
+        }
+    }
     (def.talks ?? []).forEach((t, i) => {
         for (const [who, line] of t.lines ?? []) {
             textProblems(who, `talk ${i} speaker`, errors, warnings);

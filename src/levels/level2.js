@@ -77,5 +77,8 @@ export const LEVEL2 = {
 
     prisms: [{ turnsOn: ['shallow'], banner: 'VRACÍ SE MĚLČINA' }],
 
+    // the banner when the flag is reached
+    finale: 'MOŘE MÁ ZASE HLOUBKU',
+
     clearText: ['PŘÍLIV SE VRACÍ A MOŘE ZNOVU DÝCHÁ.', 'ŠKATULKÁŘI ALE ODNÁŠEJÍ SVÉ NÁDRŽE DÁL NA SEVER...'],
 };

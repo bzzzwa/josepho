@@ -77,5 +77,8 @@ export const LEVEL3 = {
 
     prisms: [{ turnsOn: ['green', 'earth'], banner: 'VRACÍ SE ZELENÁ A HNĚDÁ' }],
 
+    // the banner when the flag is reached
+    finale: 'BARVY PODZIMU JSOU ZPĚT',
+
     clearText: ['LISTÍ SE ZNOVU BARVÍ VŠEMI ODSTÍNY PODZIMU.', 'KAM ALE ZMIZELY BARVY ŠEDIVCŮ? ODPOVĚĎ LEŽÍ V HORÁCH...'],
 };
