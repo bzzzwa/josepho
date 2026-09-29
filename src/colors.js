@@ -225,6 +225,11 @@ export function createChromaState(spec = DEFAULT_SPEC) {
         tick: 0, // frame counter for cycling slots
         flash: 0, // 0..1 mix toward white (a prism waking up)
         drain: 0, // 0..1 extra desaturation of everything (Josepho being hurt)
+        // a tint of the world (sky, land, plants, flowers) toward a color: upper sky and everything else toward
+        // `rgb`, the lower half of the sky toward `rgbLow` (so two colors can share the sky)
+        tint: { rgb: [255, 255, 255], rgbLow: [255, 255, 255], amount: 0 },
+        // the sky laid out as stripes of a flag: six colors top to bottom, and how much of it shows
+        skyFlag: { colors: null, amount: 0 },
         fade: 0, // 0..1 fade to black (screen transitions)
         lantern: 0, // flicker phase for lit lanterns
     };
@@ -232,6 +237,7 @@ export function createChromaState(spec = DEFAULT_SPEC) {
 
 const WHITE_RGB = [255, 255, 255];
 const tmp = [0, 0, 0];
+const mixed = [0, 0, 0];
 const grey = [0, 0, 0];
 const rgb = [0, 0, 0];
 
@@ -339,6 +345,20 @@ export function computePalette(state, out, spec = DEFAULT_SPEC) {
             s *= 1 - state.drain;
         }
         lerp3(tmp, grey, rgb, s);
+
+        // the world's tint (level 4: the color an arch sorted Josepho to), only on the world's own colors
+        const tint = state.tint;
+        const worldColor = group === GROUP.SKY || group === GROUP.EARTH || group === GROUP.GREEN || group === GROUP.BLOOM;
+        if (tint && tint.amount > 0 && worldColor && slot < 64) {
+            // the sky: upper half one color, lower half the other; everything else: the two mixed
+            const sky = slot >= C.SKY0 && slot < C.SKY0 + 6;
+            const target = sky ? (slot >= C.SKY0 + 3 ? tint.rgbLow : tint.rgb) : lerp3(mixed, tint.rgb, tint.rgbLow, 0.5);
+            lerp3(tmp, tmp, target, tint.amount);
+        }
+        const flagSky = state.skyFlag;
+        if (flagSky?.colors && flagSky.amount > 0 && slot >= C.SKY0 && slot < C.SKY0 + 6) {
+            lerp3(tmp, tmp, flagSky.colors[slot - C.SKY0], flagSky.amount);
+        }
 
         if (state.flash > 0) {
             lerp3(tmp, tmp, WHITE_RGB, state.flash);

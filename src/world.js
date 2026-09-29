@@ -18,8 +18,10 @@ export const ENTITY_CHARS = new Set([
 ]);
 
 // Color-gated tiles every level knows. A level adds its own in `legend` (see src/levels/README.md):
-//   kind  'solid' (a full block), 'oneway' (a ledge you can jump up through), 'water' (swimmable), or
-//         'timer' (a leaf block: always solid; bumping it turns its gate on for `seconds`)
+//   kind  'solid' (a full block), 'oneway' (a ledge you can jump up through), 'water' (swimmable),
+//         'timer' (a leaf block: always solid; bumping it turns its gate on for `seconds`), or
+//         'arch' (not a tile: an arch to walk through - see the Arch object in actors.js), or
+//         'flyer' (not a tile: a flutterer whose wings are the gate's color - see Flyer in actors.js)
 //   gate  the color group that must be on for the tile to have volume (a timer: the group it turns on)
 //   look  which art to draw: leaf, cloud, block, ledge, water
 export const BUILTIN_LEGEND = {
@@ -42,10 +44,13 @@ export class Level {
         this.ph = this.h * TILE;
         this.tiles = def.map.map((row) => [...row]);
         this.spawns = [];
+        // a level's arches and flutterers (legend kind 'arch', 'flyer') are objects, not tiles
+        const objectKinds = new Set(['arch', 'flyer']);
+        const archChars = new Set(Object.entries(def.legend ?? {}).filter(([, e]) => objectKinds.has(e.kind)).map(([c]) => c));
         for (let y = 0; y < this.h; y++) {
             for (let x = 0; x < this.w; x++) {
                 const ch = this.tiles[y][x];
-                if (ENTITY_CHARS.has(ch)) {
+                if (ENTITY_CHARS.has(ch) || archChars.has(ch)) {
                     this.spawns.push({ ch, tx: x, ty: y });
                     this.tiles[y][x] = this.fillUnder(def, x, y);
                 }

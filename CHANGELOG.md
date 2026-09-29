@@ -2,6 +2,35 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.5.0 - 2026-09-29
+
+Level 4 "Dva brehy" (Two banks).
+
+### Added
+
+- Level 4 "Dva brehy" (Two banks), 273 tiles and 22 rows tall. Its sections follow the stripes of the trans flag:
+  blue (rolling hills, the first arch on a hilltop), pink (a canyon, then blue ledges up a cliff face to a
+  plateau), white (the lake: stepping stones to the island with the white prism, white stones beyond), pink (a
+  cave with the relay on a bridge), blue (a hilltop, two arches stacked in the air over a wide pit, and the valley
+  under the white arch, whose stones need both colors at once) and the flag.
+  The Sorter's arches sort Josepho to one color - one bank on, the other grey - with a soft glow in that color.
+- Flutterers: grey creatures with blue or pink wings. While their color is on they fly back and forth; while it
+  is grey their wings cannot carry them, so they drop to the ground and toddle - and take off again when the
+  color comes back. So an arch changes the danger around Josepho, not only the ledges.
+- The world takes on a soft tint of the last arch's color (`theme.tint`): blue, pink, or after the white arch
+  both - blue above in the sky, pink below, the land mixed. At the end the sky shows the flag's stripes for a
+  few seconds (`theme.skyFlag`).
+- Talks: conversation boxes that hold the game until read. The Sorter speaks for the first time.
+- Each level has its own banner at the flag (`finale`), saying what came back: MOŘE MÁ ZASE HLOUBKU, BARVY
+  PODZIMU JSOU ZPĚT, BŘEHY JSOU SPOJENÉ (level 1 keeps SPEKTRUM JE ZPĚT).
+- `npm run test:levels` warns about one-tile holes with no floor and about pits with no way out, and notes
+  creatures that can walk to where Josepho lands after a pit.
+
+### Fixed
+
+- The flags on the world map have one pixel row per stripe: the trans flag no longer shows its top stripe twice.
+- Level 4: the deep pit under the arches in the air had no way out; every pit now has stairs up to its rim.
+
 ## 0.4.0 - 2026-09-28
 
 Level 3 "Opadavani" (Falling leaves).
