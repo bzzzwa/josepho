@@ -2,7 +2,9 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.6.0 - 2026-09-29
+
+Level 5 "Archiv" (The archive).
 
 ### Added
 
