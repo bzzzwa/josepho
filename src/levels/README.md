@@ -85,10 +85,10 @@ legend: {
 ```
 
 - `gate` - the color group (a stripe id or a built-in group).
-- `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'` or `'arch'`. Water whose color is on can be swum in; grey
+- `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'`, `'arch'` or `'flyer'`. Water whose color is on can be swum in; grey
   water has no volume at all, so Josepho drops through it to whatever is below (build a floor under it). A
   `'timer'` is a leaf block (see below) and also needs `seconds`. An `'arch'` is not a tile but an arch to walk
-  through (see below); it has no `gate`.
+  through (see below); it has no `gate`. A `'flyer'` is not a tile either but a flutterer (see below).
 - `look` - `'block'` (default), `'ledge'`, `'water'`, `'leaf'` or `'cloud'`. Blocks, ledges and water are drawn in
   the stripe's color; while the color is off they show as a dotted outline (water: an empty basin).
 
@@ -117,6 +117,14 @@ X: { kind: 'arch', shows: 'white', turnsOn: ['blue', 'pink'], turnsOff: [] },   
 
 An arch in the air over a gap is passed by jumping through it; make it tall enough that any jump across passes
 it, and put the ledge it opens where the jump lands.
+
+### Flutterers
+
+A flutterer (`kind: 'flyer'`, `gate` = the color of its wings) follows the world's rule: while its color is on its
+wings carry it and it flies back and forth around the cell of its character, bobbing; while the color is grey it
+drops to the ground and toddles about like a greyling, and it takes off again when the color comes back. It can
+be stomped either way and hurts from the side. Place it where its flight does not cross the arc of a jump
+Josepho must make, and not where it would toddle into a narrow dip Josepho has to jump down into.
 
 ### Talks
 

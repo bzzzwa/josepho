@@ -1075,3 +1075,135 @@ export class Arch {
         }
     }
 }
+
+// how a flutterer moves
+const FLY = {
+    range: 28, // pixels it flies to each side of its home
+    speed: 0.5,
+    bob: 6, // pixels up and down while flying
+    rise: 0.8, // taking off again, pixels per frame
+    walk: 0.3,
+};
+
+/**
+ * Flutterer (level 4): a grey creature with wings in one color (legend kind 'flyer', `gate` = the color). The
+ * world's rule - colored things have volume, grey ones do not - holds for its wings too: while its color is on
+ * it flies back and forth around its home; while it is grey its wings cannot carry it, so it drops to the ground
+ * and toddles about like a greyling (and takes off again when the color comes back). Stompable either way;
+ * from the side it hurts.
+ */
+export class Flyer {
+    alive = true;
+    active = true;
+    stompable = true;
+    w = 8;
+    h = 6;
+    state = 'fly'; // fly | fall | walk | rise | squash
+    timer = 0;
+
+    constructor(tx, ty, entry, stripeIndex) {
+        this.gate = entry.gate;
+        this.offset = (stripeIndex[entry.gate] ?? 0) * 4; // the wings' stripe
+        this.homeX = tx * TILE;
+        this.homeY = ty * TILE + 1;
+        this.x = this.homeX;
+        this.y = this.homeY;
+        this.vx = -FLY.walk;
+        this.vy = 0;
+        this.dir = -1;
+        this.t = (tx * 13) % 100;
+    }
+
+    get px() {
+        return Math.round(this.x);
+    }
+
+    get py() {
+        return Math.round(this.y);
+    }
+
+    get harmless() {
+        return this.state === 'squash';
+    }
+
+    overlaps(p) {
+        return p.px < this.px + this.w && p.px + p.w > this.px && p.py < this.py + this.h && p.py + p.h > this.py;
+    }
+
+    update(game) {
+        const level = game.level;
+        this.timer++;
+        this.t++;
+        if (this.state === 'squash') {
+            if (this.timer > 30) {
+                this.alive = false;
+            }
+            return;
+        }
+        const flying = !!level.gates[this.gate];
+        if (flying) {
+            if (this.state === 'fall' || this.state === 'walk') {
+                this.state = 'rise';
+            }
+            if (this.state === 'rise') {
+                // back up to where it flies
+                this.y -= FLY.rise;
+                this.x += (this.homeX - this.x) * 0.02;
+                if (this.y <= this.homeY) {
+                    this.y = this.homeY;
+                    this.state = 'fly';
+                }
+                return;
+            }
+            // flying: back and forth, bobbing
+            this.x += this.dir * FLY.speed;
+            if (this.x < this.homeX - FLY.range) {
+                this.dir = 1;
+            } else if (this.x > this.homeX + FLY.range) {
+                this.dir = -1;
+            }
+            this.y = this.homeY + Math.sin(this.t * 0.05) * FLY.bob;
+            return;
+        }
+        // grey wings: down to the ground, then toddle
+        if (this.state === 'fly' || this.state === 'rise') {
+            this.state = 'fall';
+            this.vy = 0;
+        }
+        const onGround = level.collides(this.px + 1, this.py + this.h, this.w - 2, 1, true);
+        if (!onGround) {
+            this.vy = Math.min(this.vy + 0.15, 2.5);
+            for (let i = 0; i < Math.ceil(this.vy); i++) {
+                if (level.collides(this.px + 1, this.py + this.h, this.w - 2, 1, true)) {
+                    break;
+                }
+                this.y += Math.min(1, this.vy);
+            }
+            return;
+        }
+        this.state = 'walk';
+        this.vy = 0;
+        const ahead = this.vx > 0 ? this.px + this.w : this.px - 1;
+        const wall = level.collides(ahead, this.py, 1, this.h - 1);
+        const edge = !level.collides(ahead, this.py + this.h, 1, 1, true);
+        if (wall || edge) {
+            this.vx = -this.vx;
+        } else {
+            this.x += this.vx;
+        }
+        this.dir = Math.sign(this.vx);
+    }
+
+    render(gfx, camX, camY) {
+        const x = this.px - camX;
+        const y = this.py - camY;
+        if (this.state === 'squash') {
+            gfx.draw('flyBody', x, y + 2);
+            return;
+        }
+        const up = this.state === 'fly' || this.state === 'rise';
+        const wings = up ? (Math.floor(this.t / 6) % 2 ? 'flyWings0' : 'flyWings1') : 'flyWingsFold';
+        gfx.draw(wings, x - 2, y - 3, this.offset);
+        gfx.draw(this.dir > 0 ? 'flyBody<' : 'flyBody', x, y);
+    }
+}

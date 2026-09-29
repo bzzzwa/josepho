@@ -32,6 +32,7 @@ import {
     Decor,
     Driftwood,
     Fish,
+    Flyer,
     GreatPrism,
     Greyling,
     Lantern,
@@ -316,6 +317,8 @@ export class Game {
                 this.enemies.push(new Fish(s.tx, s.ty));
             } else if (s.ch === 'k') {
                 this.enemies.push(new Skatulka(s.tx, s.ty));
+            } else if (this.def.legend?.[s.ch]?.kind === 'flyer') {
+                this.enemies.push(new Flyer(s.tx, s.ty, this.def.legend[s.ch], this.level.stripeIndex));
             }
         }
     }

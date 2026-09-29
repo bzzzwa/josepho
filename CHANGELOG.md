@@ -12,6 +12,9 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
   cave with the relay on a bridge), blue (a hilltop, two arches stacked in the air over a wide pit, and the valley
   under the white arch, whose stones need both colors at once) and the flag.
   The Sorter's arches sort Josepho to one color - one bank on, the other grey - with a soft glow in that color.
+- Flutterers: grey creatures with blue or pink wings. While their color is on they fly back and forth; while it
+  is grey their wings cannot carry them, so they drop to the ground and toddle - and take off again when the
+  color comes back. So an arch changes the danger around Josepho, not only the ledges.
 - The world takes on a soft tint of the last arch's color (`theme.tint`): blue, pink, or after the white arch
   both - blue above in the sky, pink below, the land mixed. At the end the sky shows the flag's stripes for a
   few seconds (`theme.skyFlag`).

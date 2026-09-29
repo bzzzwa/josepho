@@ -638,6 +638,13 @@ const arch = [
     '----..----',
 ];
 
+// Flutterer (level 4): a grey body, and wings in a stripe's color (grey while that color is off) - drawn apart
+// so the wings can be shifted to their stripe with a palette offset. Body 8 x 6; wings 12 x 5.
+const flyBody = ['..gggg..', '.ghhhhg.', 'ghWKhhhg', 'ghhhhhhg', '.ghhhhg.', '..g..g..'];
+const flyWings0 = ['77......77..', '787....787..', '.7877.787...', '..777777....', '............'];
+const flyWings1 = ['............', '............', '.7777.7777..', '788877888877', '.77....77...'];
+const flyWingsFold = ['............', '............', '...77.77....', '...7777.....', '............'];
+
 // HUD icons.
 const hudMote = ['.nn.', 'nmmn', 'nmmn', '.nn.'];
 const hudPrismOff = ['..U..', '.UuU.', 'UuuuU', '.UuU.', '..U..'];
@@ -753,6 +760,10 @@ export const SPRITES = {
     hudShadeOn: hudShadeOn,
     hudShadeOff: hudShadeOff,
     arch: arch,
+    flyBody: flyBody,
+    flyWings0: flyWings0,
+    flyWings1: flyWings1,
+    flyWingsFold: flyWingsFold,
     tmFrame: tmFrame,
     tmLeaf: tmLeaf,
     treeAutumn: treeAutumn,
@@ -808,6 +819,7 @@ export const MIRRORED = [
     'greyling1',
     'fish0',
     'fish1',
+    'flyBody',
     'thorn0',
     'thorn1',
 ];
