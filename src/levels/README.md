@@ -26,7 +26,7 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `startOn` | no | Color groups already on when the level starts, e.g. `['sky', 'earth']`. |
 | `switches` | if the map has `P` | The two color groups a tide switch flips between, e.g. `['shallow', 'deep']`. |
 | `talks` | no | Conversations: `[{ at: column, lines: [[speaker, text], ...] }]`, shown when Josepho first reaches `at`. |
-| `freeGreylings` | no | `true` (level 5 on): a stomp frees a greyling instead of squashing it - it gets its colors back, glows, runs off and leaves a mote. |
+| `freeGreylings` | no | `true` (level 5 on): a stomp frees a greyling instead of squashing it - it gets its colors back and leaves a mote. In a dark level it flies along with Josepho and lights the way ahead (up to three; they stay after Josepho dies and fly home at the flag); otherwise it runs off home. A freed greyling never comes back grey. |
 | `freeTalk` | no | Lines `[[speaker, text], ...]` shown when the first greyling of the level is freed. |
 | `theme` | no | The level's look (below). |
 | `finale` | no | The banner when Josepho reaches the flag - what came back, in the level's own words. Default `SPEKTRUM JE ZPĚT`. |
@@ -40,7 +40,7 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `sky` | Three rows of six hex colors (pre-dawn, sunrise, morning): the level's own sky. |
 | `tree` | `'palm'` draws palms for `T` instead of round trees; `'treeAutumn'` draws trees whose leaves use the level's first three stripes (they light up while those colors are on). |
 | `background` | `'sea'`: low islands and open water behind, instead of hills; `'archive'`: a dark back wall with shelves of grey boxes. |
-| `dark` | `true`: the level is dark except around the lights (Josepho, lit lanterns, freed greylings). At the flag the light spreads until the dark is gone. |
+| `dark` | `true`: the level is dark except around the lights (Josepho, lit lanterns, freed greylings). Fireflies drift about for the mood (their glow does not light aura tiles). At the flag the light spreads until the dark is gone. |
 | `leaves` | `true`: leaves fall through the air, in the colors of the first three stripes. |
 | `tint` | `0`-`1`: how strongly the whole world takes on the color of the last arch Josepho passed (an arch that turns on two colors: the upper sky one, the lower sky the other, the land both mixed). `0.25` is a soft tint. |
 | `skyFlag` | Six hex colors, top to bottom: at the end of the level the sky shows them as the stripes of a flag for a few seconds. |

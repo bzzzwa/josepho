@@ -798,6 +798,10 @@ export const SPRITES = {
 
 // Sprites whose '#' means "index 1" - they are tinted with a palette offset when drawn.
 export const MASKS = {
+    // almost solid: 7 of every 8 pixels (the dark of level 5 - only faint outlines show through)
+    dither88: ditherRows(['.#######', '#####.##', '##.#####', '######.#']),
+    // a solid 32 x 32 block: gfx.rect and gfx.pixel draw with it (see gfx.js)
+    solid: Array.from({ length: 32 }, () => '#'.repeat(32)),
     arrowLeft,
     arrowRight,
     dither50,

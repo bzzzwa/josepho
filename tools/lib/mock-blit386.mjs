@@ -155,7 +155,25 @@ function plot(x, y, color) {
 
 const POINTER_A = 4096;
 
-export const BT = {
+// Like the real renderer, the mock draws a frame in two layers: every primitive (drawRectFill, drawRect,
+// drawLine, drawPixel) first, then every sprite - whatever order they were called in. The calls are queued and
+// run by endFrame(), which the harness calls after each render.
+const primitives = [];
+const sprites = [];
+
+/** Draws the frame's queued calls: primitives under sprites, each layer in call order. */
+export function endFrame() {
+    for (const draw of primitives) {
+        draw();
+    }
+    for (const draw of sprites) {
+        draw();
+    }
+    primitives.length = 0;
+    sprites.length = 0;
+}
+
+const BT_NOW = {
     BTN_UP: 1,
     BTN_DOWN: 2,
     BTN_LEFT: 4,
@@ -278,6 +296,29 @@ export const BT = {
         }
     },
 };
+
+// The BLIT386 test double. Draw calls are queued in their layer (see endFrame); everything else runs at once.
+// The camera is read when a call is made, as in the engine.
+// Positions and rectangles are copied: the game reuses its Vector2i / Rect2i objects between calls.
+const snapshot = (a) =>
+    a && typeof a === 'object' && 'x' in a && 'y' in a
+        ? { x: a.x, y: a.y, width: a.width, height: a.height }
+        : a;
+const queued = (layer, fn) => (...given) => {
+    const args = given.map(snapshot);
+    const cam = { ...camera };
+    layer.push(() => {
+        const keep = camera;
+        camera = cam;
+        fn(...args);
+        camera = keep;
+    });
+};
+for (const name of ['drawRectFill', 'drawRect', 'drawLine', 'drawPixel']) {
+    BT_NOW[name] = queued(primitives, BT_NOW[name]);
+}
+BT_NOW.drawSprite = queued(sprites, BT_NOW.drawSprite);
+export const BT = BT_NOW;
 
 /** The game class handed to bootstrap(). */
 export let GameClass = null;

@@ -1,7 +1,7 @@
 // harness.mjs - runs the real game in Node (with the engine test double) and drives it frame by frame.
 // Run scripts that use this with:  node --import ./tools/lib/register-mock.mjs <script>
 
-import { BT, beginFrame, currentPalette, framebuffer, GameClass, input, stats } from 'blit386';
+import { BT, beginFrame, currentPalette, endFrame, framebuffer, GameClass, input, stats } from 'blit386';
 import { writePng } from './png.mjs';
 
 const W = 192;
@@ -46,6 +46,7 @@ export function step(game, keys = [], touches = []) {
     game.update();
     beginFrame();
     game.render();
+    endFrame();
     input.prevTouches = new Set(input.touches.keys());
 }
 

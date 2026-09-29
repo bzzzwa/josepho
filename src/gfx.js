@@ -63,27 +63,57 @@ class Gfx {
         BT.drawSprite(this.sheet, this.part, this.pos, offset);
     }
 
+    /**
+     * A filled rectangle. Drawn with a solid sprite, not BT.drawRectFill: BLIT386's renderer draws all of a
+     * frame's primitives before all of its sprites, so a primitive rectangle ends up under every sprite no matter
+     * when it was drawn. As a sprite it stays in drawing order (the dark of level 5 over the tiles, a sign's box
+     * over the world).
+     */
     rect(x, y, w, h, color) {
+        x = Math.round(x);
+        y = Math.round(y);
+        w = Math.round(w);
+        h = Math.round(h);
         if (w <= 0 || h <= 0) {
             return;
         }
-        this.box.set(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
-        BT.drawRectFill(this.box, color);
+        for (let yy = 0; yy < h; yy += 32) {
+            for (let xx = 0; xx < w; xx += 32) {
+                this.drawPart('solid', 0, 0, Math.min(32, w - xx), Math.min(32, h - yy), x + xx, y + yy, color - 1);
+            }
+        }
     }
 
+    /** A rectangle outline (sprites too, so it stays in drawing order). */
     frame(x, y, w, h, color) {
-        this.box.set(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
-        BT.drawRect(this.box, color);
+        x = Math.round(x);
+        y = Math.round(y);
+        w = Math.round(w);
+        h = Math.round(h);
+        this.rect(x, y, w, 1, color);
+        this.rect(x, y + h - 1, w, 1, color);
+        this.rect(x, y + 1, 1, h - 2, color);
+        this.rect(x + w - 1, y + 1, 1, h - 2, color);
     }
 
+    /** A line, pixel by pixel (sprites, in drawing order). */
     line(x0, y0, x1, y1, color) {
-        this.p0.set(Math.round(x0), Math.round(y0));
-        this.p1.set(Math.round(x1), Math.round(y1));
-        BT.drawLine(this.p0, this.p1, color);
+        x0 = Math.round(x0);
+        y0 = Math.round(y0);
+        x1 = Math.round(x1);
+        y1 = Math.round(y1);
+        if (x0 === x1) {
+            this.rect(x0, Math.min(y0, y1), 1, Math.abs(y1 - y0) + 1, color);
+            return;
+        }
+        const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+        for (let i = 0; i <= steps; i++) {
+            this.pixel(x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps, color);
+        }
     }
 
     pixel(x, y, color) {
-        BT.drawPixel(Math.round(x), Math.round(y), color);
+        this.drawPart('solid', 0, 0, 1, 1, Math.round(x), Math.round(y), color - 1);
     }
 
     /** A horizontal dithered strip (pattern 'dither50', 'dither25' or 'dither12'), one row tall. */
@@ -93,8 +123,9 @@ class Gfx {
         const yy = Math.round(y);
         while (dx < end) {
             const span = Math.min(56, end - dx);
-            // start inside the pattern so the dots line up with the screen grid
-            this.drawPart(pattern, dx & 7, (row + yy) & 1, span, 1, dx, yy, color - 1);
+            // start inside the pattern so the dots line up with the screen grid (patterns are 2 or 4 rows tall)
+            const rows = this.rects[pattern]?.height ?? 2;
+            this.drawPart(pattern, dx & 7, (row + yy) % rows, span, 1, dx, yy, color - 1);
             dx += span;
         }
     }

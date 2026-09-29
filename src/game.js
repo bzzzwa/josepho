@@ -29,8 +29,10 @@ import { bootstrap, BT, Color32, Vector2i } from 'blit386';
 import {
     Arch,
     Bell,
+    Companion,
     Decor,
     Driftwood,
+    Firefly,
     Fish,
     Flyer,
     GreatPrism,
@@ -78,7 +80,9 @@ const SAT_SPEED = 0.009; // a color fading in over about two seconds
 const TIDE_SPEED = 0.15; // a tide switch recolors almost at once
 const TIMER_WARN = 90; // the last frames of a timer color: its tiles blink and a clock ticks
 // light for aura tiles and against the dark (radius in pixels)
-const LIGHT = { josepho: 32, lantern: 30, greyling: 20, soft: 8 };
+const LIGHT = { josepho: 32, lantern: 30, greyling: 20, companion: 24, soft: 8 };
+// at most this many freed greylings fly along with Josepho in a dark level
+const MAX_COMPANIONS = 3;
 // how far below the top of the screen the camera keeps Josepho: more room above in taller levels, for
 // blocks and signs (a 14-row level like level 1 barely scrolls up and down at all)
 const CAMERA_ABOVE = 50;
@@ -220,6 +224,18 @@ export class Game {
         this.drifts = [];
         this.arches = [];
         this.freed = 0; // greylings freed in this level (level 5 on)
+        this.freedSpawns = new Set(); // their map cells ("x,y"), so they are not spawned grey again
+        this.companions = []; // freed greylings flying along with Josepho (dark levels)
+        // fireflies: only for the mood of a dark level, spread along it in the open air
+        this.fireflies = [];
+        if (def.theme?.dark) {
+            for (let tx = 10, i = 0; tx < this.level.w; tx += 14, i++) {
+                const ty = 3 + ((i * 5) % 8);
+                if (this.level.tile(tx, ty) === '.') {
+                    this.fireflies.push(new Firefly(tx * TILE, ty * TILE, i));
+                }
+            }
+        }
         this.sortedAs = null; // the color the last arch sorted Josepho to (a stripe id), or null
         this.sortedBy = null; // that arch's legend entry (saved with the game, for the world's tint)
         this.tintColors = null;
@@ -313,7 +329,11 @@ export class Game {
         this.enemies = [];
         for (const s of this.level.spawns) {
             if (s.ch === 'e') {
-                this.enemies.push(new Greyling(s.tx, s.ty));
+                // a greyling once freed stays free (it does not come back grey after Josepho dies)
+                const key = `${s.tx},${s.ty}`;
+                if (!this.freedSpawns.has(key)) {
+                    this.enemies.push(Object.assign(new Greyling(s.tx, s.ty), { spawnKey: key }));
+                }
             } else if (s.ch === 't') {
                 this.enemies.push(new Thornback(s.tx, s.ty));
             } else if (s.ch === 'r') {
@@ -594,6 +614,7 @@ export class Game {
             stripesOn: (this.def.spectrum ?? []).map((s) => s.id).filter((id) => this.level.gates[id] && !this.timers.has(id)),
             sortedAs: this.sortedAs,
             sortedBy: this.sortedBy,
+            freed: [...this.freedSpawns],
         };
         writeSave(this.save);
     }
@@ -643,6 +664,16 @@ export class Game {
                 this.chroma.tint.amount = this.def.theme?.tint ?? 0;
                 this.chroma.tint.rgb = [...this.tintColors[0]];
                 this.chroma.tint.rgbLow = [...this.tintColors[1]];
+            }
+        }
+        // freed greylings stay free; in a dark level they fly along again (as many as there is room for)
+        this.freedSpawns = new Set(p.freed ?? []);
+        this.enemies = this.enemies.filter((e) => !this.freedSpawns.has(e.spawnKey));
+        this.freed = this.freedSpawns.size;
+        if (this.def.theme?.dark) {
+            const n = Math.min(MAX_COMPANIONS, this.freedSpawns.size);
+            for (let i = 0; i < n; i++) {
+                this.companions.push(new Companion(this.player.px, this.player.py - 12, i));
             }
         }
         // conversations already behind the lantern are not shown again
@@ -756,6 +787,12 @@ export class Game {
             return;
         }
         this.updateTimers();
+        for (const c of this.companions) {
+            c.update(this.player);
+        }
+        for (const f of this.fireflies) {
+            f.update();
+        }
         this.updateLights();
         if (this.talk) {
             // a conversation holds the game still until it is read
@@ -831,8 +868,15 @@ export class Game {
             const top = Math.min(e.py, e.prevTop ?? e.py);
             const stomp = e.stompable && p.vy > 0 && p.prevBottom <= top + 3;
             if (stomp && this.def.freeGreylings && e instanceof Greyling) {
-                // level 5 on: a stomp frees a greyling - it gets its colors back and leaves a mote behind
-                e.free();
+                // level 5 on: a stomp frees a greyling - it gets its colors back and leaves a mote behind. In a
+                // dark level it flies along with Josepho and lights the way; otherwise it runs off home.
+                this.freedSpawns.add(e.spawnKey);
+                if (this.def.theme?.dark && this.companions.length < MAX_COMPANIONS) {
+                    e.alive = false;
+                    this.companions.push(new Companion(e.px, e.py, this.companions.length));
+                } else {
+                    e.free();
+                }
                 p.vy = -(inp.jump ? PHYS.stompBounce + 14 : PHYS.stompBounce);
                 p.jumping = inp.jump;
                 p.flutterFuel = PHYS.flutterMax;
@@ -1054,6 +1098,11 @@ export class Game {
         if (p && !p.dead) {
             lights.push({ x: p.cx, y: p.py + 5, r: LIGHT.josepho });
         }
+        for (const c of this.companions) {
+            if (!c.leaving) {
+                lights.push({ x: c.cx, y: c.cy, r: LIGHT.companion });
+            }
+        }
         for (const l of this.lanterns) {
             if (l.lit) {
                 lights.push({ x: l.tx * TILE + 4, y: l.ty * TILE + 2, r: LIGHT.lantern });
@@ -1067,11 +1116,15 @@ export class Game {
         this.level.lights = lights;
     }
 
-    /** A dark level: everything but the circles of light is dark, with a soft dithered rim. */
+    /**
+     * A dark level: everything but the circles of light is almost black - only faint outlines show through -
+     * with a soft dithered rim around each light.
+     */
     renderDarkness(cx, cy) {
-        // at the flag the light spreads until the dark is gone
+        // at the flag the light spreads until the dark is gone; fireflies only light the dark, not the ledges
         const grow = this.finaleTime >= 0 ? this.finaleTime * 3 : 0;
-        const lights = this.level.lights.map((l) => ({ x: l.x - cx, y: l.y - cy, r: l.r + grow }));
+        const glows = this.fireflies.map((f) => ({ x: f.x, y: f.y, r: f.glow }));
+        const lights = [...this.level.lights, ...glows].map((l) => ({ x: l.x - cx, y: l.y - cy, r: l.r + grow }));
         for (let y = 0; y < SCREEN_H; y++) {
             // spans on this row: fully lit (inner) and the soft rim (outer)
             const inner = [];
@@ -1102,16 +1155,16 @@ export class Game {
             };
             const o = merge(outer);
             const i = merge(inner);
-            // dark outside the outer spans
+            // almost dark outside the outer spans
             let x = 0;
             for (const [a, b] of o) {
                 if (a > x) {
-                    gfx.rect(x, y, Math.min(a, SCREEN_W) - x, 1, C.INK);
+                    gfx.ditherRow('dither88', x, y, Math.min(a, SCREEN_W) - x, C.INK);
                 }
                 x = Math.max(x, b);
             }
             if (x < SCREEN_W) {
-                gfx.rect(x, y, SCREEN_W - x, 1, C.INK);
+                gfx.ditherRow('dither88', x, y, SCREEN_W - x, C.INK);
             }
             // the rim: dithered, inside the outer spans but outside the inner ones
             for (const [a, b] of o) {
@@ -1389,6 +1442,9 @@ export class Game {
         this.player.vx = 0;
         this.finaleTime = 0;
         this.freeze = 40;
+        for (const c of this.companions) {
+            c.leaving = true; // home
+        }
         // the end of every level: the whole palette on - timer colors too, now for good
         this.timers.clear();
         this.level.blinking.clear();
@@ -1708,6 +1764,12 @@ export class Game {
             }
             const sortColor = this.sortedAs ? HINT0 + (this.level.stripeIndex[this.sortedAs] ?? 0) * HINT_SHADES : null;
             this.player.render(gfx, cx, cy, this.tick, sortColor);
+            for (const c of this.companions) {
+                c.render(gfx, cx, cy);
+            }
+            for (const f of this.fireflies) {
+                f.render(gfx, cx, cy);
+            }
         }
 
         BT.cameraSet(new Vector2i(cx, cy));
