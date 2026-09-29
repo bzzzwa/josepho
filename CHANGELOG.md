@@ -16,12 +16,13 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
   both - blue above in the sky, pink below, the land mixed. At the end the sky shows the flag's stripes for a
   few seconds (`theme.skyFlag`).
 - Talks: conversation boxes that hold the game until read. The Sorter speaks for the first time.
-- `npm run test:levels` warns about one-tile holes with no floor, and notes creatures that can walk to where
-  Josepho lands after a pit.
+- `npm run test:levels` warns about one-tile holes with no floor and about pits with no way out, and notes
+  creatures that can walk to where Josepho lands after a pit.
 
 ### Fixed
 
 - The flags on the world map have one pixel row per stripe: the trans flag no longer shows its top stripe twice.
+- Level 4: the deep pit under the arches in the air had no way out; every pit now has stairs up to its rim.
 
 ## 0.4.0 - 2026-09-28
 

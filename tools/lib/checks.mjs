@@ -225,6 +225,33 @@ export function checkJumps(def) {
             warnings.push(`from ${where} nothing to the right is in safe jump reach`);
         }
     }
+    // Every pit floor (backdrop behind it) must have a way out: stairs, or ledges, up to ground outside the pit.
+    const inPit = (t) => at(t.x0, t.row - 1) === ',' || at(t.x1, t.row - 1) === ',';
+    for (const s of segments) {
+        if (!inPit(s)) {
+            continue;
+        }
+        const seen = new Set([s]);
+        const queue = [s];
+        let out = false;
+        while (queue.length && !out) {
+            const a = queue.shift();
+            for (const t of segments) {
+                if (!seen.has(t) && jump(a, t, SAFE.gap, false)) {
+                    if (!inPit(t) && t.row < s.row) {
+                        out = true;
+                        break;
+                    }
+                    seen.add(t);
+                    queue.push(t);
+                }
+            }
+        }
+        if (!out) {
+            warnings.push(`no way out of the pit floor at columns ${s.x0}-${s.x1} (row ${s.row}) - Josepho is stuck there`);
+        }
+    }
+
     // A hole one column wide that goes all the way down is almost always a slip in building the map.
     const bottomless = (x) => [...Array(h).keys()].every((y) => !standOn(at(x, y)) && at(x, y) !== '~');
     for (let x = 1; x < w - 1; x++) {
