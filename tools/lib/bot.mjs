@@ -61,6 +61,44 @@ function colorAhead(level, p, gate) {
     return false;
 }
 
+/** The nearest beam ledge just ahead is not lit yet: wait for the lamp. */
+function beamNotYet(level, p) {
+    const col = Math.floor(p.cx / 8);
+    const feetRow = Math.floor((p.bottom - 1) / 8);
+    // look a little further when running: stopping takes a few pixels
+    const reach = Math.abs(p.vx) > 16 ? 4 : 2;
+    for (let dx = 1; dx <= reach; dx++) {
+        for (let y = feetRow - 1; y <= feetRow + 1; y++) {
+            const e = level.legend[level.tile(col + dx, y)];
+            if (e?.kind === 'beam') {
+                return !level.inBeams(e, col + dx, y);
+            }
+        }
+    }
+    return false;
+}
+
+/** Standing on a beam ledge, or a few tiles before one: the way on is to walk with the lamp's light. */
+function onBeamRoute(level, p) {
+    const col = Math.floor(p.cx / 8);
+    const feetRow = Math.floor((p.bottom - 1) / 8);
+    for (let dx = 0; dx <= 4; dx++) {
+        for (let y = feetRow; y <= feetRow + 1; y++) {
+            if (level.legend[level.tile(col + dx, y)]?.kind === 'beam') {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/** A stamp just ahead that is shaking, falling or lying down. */
+function stampAhead(game, p) {
+    return game.enemies.some(
+        (e) => e.homeY !== undefined && e.w === 16 && e.px > p.px + p.w - 2 && e.px - (p.px + p.w) < 20 && ['warn', 'fall', 'land'].includes(e.state),
+    );
+}
+
 /** The nearest leaf block or tide switch behind Josepho (up to 20 tiles), bumpable from the ground below it. */
 function findTriggerBehind(level, p) {
     const col = Math.floor(p.cx / 8);
@@ -131,6 +169,7 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
     let retreat = null; // going back to a leaf block or switch to try a stretch again
     let furthest = 0;
     let lastSwitch = { frame: -999, key: '' };
+    let waiting = false; // waiting on purpose (for a lamp or a stamp) is not being stuck
     let strokeTimer = 0;
 
     for (let f = 0; f < maxFrames; f++) {
@@ -202,7 +241,29 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
             const again = swKey !== lastSwitch.key || f - lastSwitch.frame > 90;
             const swSoon = p.onGround && !sw && [1, 2, 3].some((a) => switchOverhead(level, p, a, game.timers));
             const needed = sw && (blockedAhead(level, p) || (sw.gate && colorAhead(level, p, sw.gate)));
-            if (sw && again && needed) {
+            const wait = p.onGround && (beamNotYet(level, p) || stampAhead(game, p));
+            waiting = wait;
+            const ride = p.onGround && onBeamRoute(level, p);
+            if (wait) {
+                // a lamp's light has not reached the ledge ahead yet, or a stamp ahead is coming down: wait
+                keys.length = 0;
+            } else if (ride) {
+                // on (or at) a bridge of lamp light: walk with the light, never jump into the dark - step on only
+                // while the ledge under Josepho's front is lit
+                keys.length = 0;
+                const front = Math.floor((p.px + p.w + 2) / 8);
+                const under = Math.floor((p.bottom + 1) / 8);
+                const e = level.legend[level.tile(front, under)];
+                const here = level.legend[level.tile(Math.floor(p.cx / 8), under)];
+                // stepping from firm ground onto the light: only while its lamp moves on ahead, not back toward us
+                const x = front * 8 + 4;
+                const coming = game.lamps.some((l) => l.range && l.dir < 0 && Math.abs(l.x - x) < l.width);
+                const boarding = here?.kind !== 'beam' && e?.kind === 'beam';
+                if (!(e?.kind === 'beam' && !level.inBeams(e, front, under)) && !(boarding && coming)) {
+                    keys.push(RIGHT);
+                }
+                waiting = keys.length === 0;
+            } else if (sw && again && needed) {
                 // the tide switch first: it may make the way
                 lastSwitch = { frame: f, key: swKey };
                 hold = 8;
@@ -291,7 +352,7 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
             deaths.push({ frame: f, tile: Math.floor(p.px / 8), cause: game.player.deathCause });
         }
         if (Math.abs(p.px - lastX) < 1) {
-            stuck++;
+            stuck = waiting ? 0 : stuck + 1;
         } else if (p.px > furthest - 4) {
             stuck = 0;
         }

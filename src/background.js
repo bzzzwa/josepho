@@ -126,6 +126,10 @@ export class Background {
             this.renderArchive(gfx, camX);
             return;
         }
+        if (this.style === 'office') {
+            this.renderOffice(gfx, camX);
+            return;
+        }
 
         // Mid hills.
         const mo = Math.floor(camX * MID_SPEED);
@@ -135,6 +139,29 @@ export class Background {
             gfx.line(sx2, top, sx2, SCREEN_H - 1, C.MID);
             if (this.mid[i + 1] > top) {
                 gfx.pixel(sx2, top, C.MID_HI);
+            }
+        }
+    }
+
+    /**
+     * The Sorter's office: a grey wall with tall windows (a pale sky outside) and rows of filing cabinets, all
+     * sliding slowly with the parallax.
+     */
+    renderOffice(gfx, camX) {
+        gfx.rect(0, 0, SCREEN_W, SCREEN_H, C.STONE_DK);
+        const wall = Math.floor(camX * 0.25);
+        for (let wx = -(wall % 64) - 64; wx < SCREEN_W + 64; wx += 64) {
+            gfx.rect(wx + 20, 18, 24, 30, C.GREY);
+            gfx.rect(wx + 22, 20, 20, 26, C.SKY0 + 4);
+            gfx.rect(wx + 31, 20, 2, 26, C.GREY);
+            gfx.rect(wx + 22, 32, 20, 1, C.GREY);
+        }
+        const near = Math.floor(camX * 0.45);
+        for (let cx = -(near % 14) - 14; cx < SCREEN_W + 14; cx += 14) {
+            gfx.rect(cx, 60, 12, 48, C.GREY_DK);
+            for (let d = 0; d < 4; d++) {
+                gfx.rect(cx + 1, 62 + d * 11, 10, 9, C.GREY);
+                gfx.rect(cx + 4, 66 + d * 11, 4, 1, C.GREY_LT);
             }
         }
     }

@@ -37,6 +37,7 @@ import {
     Flyer,
     GreatPrism,
     Greyling,
+    Lamp,
     Lantern,
     Mote,
     Petal,
@@ -47,6 +48,7 @@ import {
     Shade,
     Sign,
     Skatulka,
+    Stamp,
     Thornback,
 } from './actors.js';
 import { Background } from './background.js';
@@ -223,6 +225,8 @@ export class Game {
         this.decor = [];
         this.drifts = [];
         this.arches = [];
+        this.lamps = []; // office lamps (level 6)
+        this.marks = []; // ZAMITNUTO marks the stamps left on the floor
         this.freed = 0; // greylings freed in this level (level 5 on)
         this.freedSpawns = new Set(); // their map cells ("x,y"), so they are not spawned grey again
         this.companions = []; // freed greylings flying along with Josepho (dark levels)
@@ -279,6 +283,7 @@ export class Game {
                     this.bells.push(new Bell(s.tx, s.ty));
                     break;
                 case 'f':
+                case 'c':
                 case 'T': {
                     const d = new Decor(s.ch, s.tx, s.ty);
                     d.tree = def.theme?.tree;
@@ -294,6 +299,8 @@ export class Game {
                 default:
                     if (def.legend?.[s.ch]?.kind === 'arch') {
                         this.arches.push(new Arch(s.tx, s.ty, def.legend[s.ch], this.level.stripeIndex));
+                    } else if (def.legend?.[s.ch]?.kind === 'lamp') {
+                        this.lamps.push(new Lamp(s.tx, s.ty, def.legend[s.ch], this.level.stripeIndex));
                     }
             }
         }
@@ -340,6 +347,8 @@ export class Game {
                 this.enemies.push(new Fish(s.tx, s.ty));
             } else if (s.ch === 'k') {
                 this.enemies.push(new Skatulka(s.tx, s.ty));
+            } else if (s.ch === 'x') {
+                this.enemies.push(new Stamp(s.tx, s.ty));
             } else if (this.def.legend?.[s.ch]?.kind === 'flyer') {
                 this.enemies.push(new Flyer(s.tx, s.ty, this.def.legend[s.ch], this.level.stripeIndex));
             }
@@ -794,6 +803,10 @@ export class Game {
             f.update();
         }
         this.updateLights();
+        for (const l of this.lamps) {
+            l.update(this.level);
+        }
+        this.level.beams = this.lamps.map((l) => l.beam);
         if (this.talk) {
             // a conversation holds the game still until it is read
             this.updateTalk(inp);
@@ -805,6 +818,7 @@ export class Game {
         this.carryOnDrift(p);
         p.update(inp, this);
         this.landOnDrift(p);
+        this.rideBelt(p);
         if (!p.dead) {
             this.updateArches(p, prevCx);
             this.startTalks(p);
@@ -1182,6 +1196,25 @@ export class Game {
                     gfx.ditherRow('dither50', from, y, b - from, C.INK);
                 }
             }
+        }
+    }
+
+    /** A sorting belt carries Josepho along while they stand on it. */
+    rideBelt(p) {
+        if (!p.onGround || p.dead) {
+            return;
+        }
+        const speed = this.level.beltAt(p.cx, p.bottom);
+        if (speed && !this.level.collides(p.px + Math.sign(speed), p.py, p.w, p.h)) {
+            p.x += speed * SUB;
+        }
+    }
+
+    /** A stamp came down: a ZAMITNUTO mark stays on the floor (the last few). */
+    stampMark(x, y) {
+        this.marks.push({ x, y });
+        if (this.marks.length > 8) {
+            this.marks.shift();
         }
     }
 
@@ -1701,7 +1734,8 @@ export class Game {
 
         const bloom = this.level.gates.bloom;
         for (const d of this.decor) {
-            if (d.ch === 'T') {
+            // trees, and the clerks behind their counters (level 6), stand behind everything else
+            if (d.ch === 'T' || d.ch === 'c') {
                 d.render(gfx, cx, cy, bloom, this.tick);
             }
         }
@@ -1723,6 +1757,14 @@ export class Game {
         for (const d of this.drifts) {
             d.render(gfx, cx, cy);
         }
+        // the office: stamp marks on the floor, and the lamps with their light
+        for (const m of this.marks) {
+            gfx.textCentered('ZAMÍTNUTO', m.x - cx, m.y - 4 - cy, C.PETAL_A, null);
+        }
+        this.lamps.forEach((l) => {
+            const k = this.level.stripeIndex[l.gate] ?? 0;
+            l.render(gfx, cx, cy, HINT0 + k * HINT_SHADES, k);
+        });
 
         for (const d of this.decor) {
             if (d.ch === 'f') {

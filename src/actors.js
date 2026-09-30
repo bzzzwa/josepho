@@ -718,6 +718,13 @@ export class Decor {
         }
         if (this.ch === 'T') {
             gfx.draw(this.tree ?? 'tree', this.x - 4 - camX, this.bottom - 24 - camY);
+        } else if (this.ch === 'c') {
+            // a clerk behind the counter, stamping forms
+            const x = this.x - 1 - camX;
+            const y = this.bottom - camY;
+            gfx.draw(Math.floor((tick + this.tx * 17) / 18) % 3 === 0 ? 'clerk1' : 'clerk0', x, y - 12);
+            gfx.rect(x - 3, y - 5, 16, 5, C.WOOD_DK);
+            gfx.rect(x - 3, y - 5, 16, 1, C.WOOD);
         } else {
             const name = bloom ? `flower${this.variant}` : 'flowerBud';
             const sway = bloom && Math.floor((tick + this.tx * 11) / 40) % 2 ? 1 : 0;
@@ -1340,5 +1347,181 @@ export class Firefly {
         if (this.glow > 8) {
             gfx.pixel(x + 1, y, C.MOTE);
         }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------- level 6 on
+
+/**
+ * An office lamp (legend kind 'lamp'): it hangs under the ceiling and shines a column of its color straight
+ * down, `width` tiles wide (3 by default), to the first solid tile. With `range` (tiles, + right / - left first)
+ * and `speed` (pixels per frame) it rides a rail back and forth. Beam tiles of its color have volume in its light.
+ */
+export class Lamp {
+    constructor(tx, ty, entry, stripeIndex) {
+        this.gate = entry.gate;
+        this.offset = (stripeIndex[entry.gate] ?? 0) * 2; // hint shades of its color
+        this.homeX = tx * TILE + 4;
+        this.x = this.homeX;
+        this.top = ty * TILE;
+        this.range = (entry.range ?? 0) * TILE;
+        this.speed = entry.speed ?? 0;
+        this.dir = Math.sign(this.range) || 1;
+        this.width = (entry.width ?? 3) * TILE;
+        this.bottom = this.top + TILE;
+    }
+
+    update(level) {
+        if (this.range && this.speed) {
+            this.x += this.dir * this.speed;
+            const a = Math.min(this.homeX, this.homeX + this.range);
+            const b = Math.max(this.homeX, this.homeX + this.range);
+            if (this.x <= a) {
+                this.x = a;
+                this.dir = 1;
+            } else if (this.x >= b) {
+                this.x = b;
+                this.dir = -1;
+            }
+        }
+        // the light reaches down to the first solid tile under the lamp
+        const tx = Math.floor(this.x / TILE);
+        let ty = Math.floor(this.top / TILE) + 1;
+        while (ty < level.h && !level.isSolidTile(level.tile(tx, ty), tx, ty)) {
+            ty++;
+        }
+        this.bottom = ty * TILE;
+    }
+
+    get beam() {
+        return { x0: this.x - this.width / 2, x1: this.x + this.width / 2, y0: this.top + 4, y1: this.bottom, gate: this.gate };
+    }
+
+    /** color: the hint slot of its color; phase: which dither rows (two lamps' light interleaves where they meet). */
+    render(gfx, camX, camY, color, phase) {
+        const x = Math.round(this.x) - camX;
+        const top = this.top - camY;
+        if (this.range) {
+            const a = Math.min(this.homeX, this.homeX + this.range) - camX;
+            gfx.rect(a - 4, top - 1, Math.abs(this.range) + 8, 1, C.GREY_DK);
+        }
+        // the light: a dotted column
+        const x0 = Math.round(x - this.width / 2);
+        for (let y = top + 4; y < this.bottom - camY; y++) {
+            if (y >= 0 && y < 108) {
+                gfx.ditherRow('dither25', x0, y, this.width, color, phase);
+            }
+        }
+        gfx.rect(x - 1, top - 1, 2, 1, C.INK);
+        gfx.draw('lamp', x - 4, top, this.offset);
+    }
+}
+
+// how a stamp behaves
+const STAMP = {
+    reach: 12, // starts when Josepho's middle is this close to its middle (pixels, sideways) and below it
+    warn: 30, // frames it shakes first
+    gravity: 0.35,
+    maxFall: 5,
+    rest: 50, // frames it stays down
+    rise: 0.6, // pixels per frame going back up
+    cool: 40, // frames at the top before it can fall again
+};
+
+/**
+ * The Sorter's stamp (level 6): it hangs under the ceiling; when Josepho steps under it, it shakes, drops like a
+ * stone and stamps ZAMITNUTO on the floor, then slowly rises again. It hurts while falling and lying on the
+ * floor, never while shaking or rising; it cannot be stomped.
+ */
+export class Stamp {
+    alive = true;
+    active = true;
+    stompable = false;
+    w = 16;
+    h = 12;
+    state = 'wait'; // wait | warn | fall | land | rise
+    timer = 0;
+
+    constructor(tx, ty) {
+        this.x = tx * TILE - 4;
+        this.homeY = ty * TILE;
+        this.y = this.homeY;
+        this.vy = 0;
+    }
+
+    get px() {
+        return Math.round(this.x);
+    }
+
+    get py() {
+        return Math.round(this.y);
+    }
+
+    get harmless() {
+        return this.state !== 'fall' && this.state !== 'land';
+    }
+
+    overlaps(p) {
+        return p.px < this.px + this.w && p.px + p.w > this.px && p.py < this.py + this.h && p.py + p.h > this.py;
+    }
+
+    update(game) {
+        const level = game.level;
+        const p = game.player;
+        this.timer++;
+        switch (this.state) {
+            case 'wait':
+                if (this.timer > STAMP.cool && Math.abs(p.cx - (this.x + this.w / 2)) < STAMP.reach && p.py > this.y) {
+                    this.state = 'warn';
+                    this.timer = 0;
+                }
+                break;
+            case 'warn':
+                if (this.timer % 6 === 0) {
+                    game.sound.play('bump', { pitch: 0.6, volume: 0.5 });
+                }
+                if (this.timer >= STAMP.warn) {
+                    this.state = 'fall';
+                    this.vy = 0;
+                }
+                break;
+            case 'fall':
+                this.vy = Math.min(this.vy + STAMP.gravity, STAMP.maxFall);
+                for (let i = 0; i < Math.ceil(this.vy); i++) {
+                    if (level.collides(this.px + 1, this.py + this.h, this.w - 2, 1, true)) {
+                        this.state = 'land';
+                        this.timer = 0;
+                        game.fx.kick(3);
+                        game.sound.play('stomp', { pitch: 0.5 });
+                        game.stampMark(this.px + this.w / 2, this.py + this.h);
+                        break;
+                    }
+                    this.y += 1;
+                }
+                break;
+            case 'land':
+                if (this.timer >= STAMP.rest) {
+                    this.state = 'rise';
+                }
+                break;
+            case 'rise':
+                this.y -= STAMP.rise;
+                if (this.y <= this.homeY) {
+                    this.y = this.homeY;
+                    this.state = 'wait';
+                    this.timer = 0;
+                }
+                break;
+        }
+    }
+
+    render(gfx, camX, camY) {
+        const shake = this.state === 'warn' ? (Math.floor(this.timer / 2) % 2 ? 1 : -1) : 0;
+        const x = this.px + shake - camX;
+        const y = this.py - camY;
+        // the rod it hangs on
+        const rodTop = this.homeY - 8 - camY;
+        gfx.rect(x + 7, rodTop, 2, y - rodTop, C.GREY_DK);
+        gfx.draw('stamp', x, y);
     }
 }

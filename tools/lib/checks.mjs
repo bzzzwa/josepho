@@ -56,6 +56,20 @@ export function checkLevel(def, world) {
         if (TILE_CHARS.has(ch) || ENTITY_CHARS.has(ch) || BUILTIN_LEGEND[ch]) {
             errors.push(`legend character '${ch}' is already used by the game`);
         }
+        if (entry.kind === 'lamp') {
+            if (!groups.has(entry.gate)) {
+                errors.push(`legend '${ch}' (lamp): unknown color group '${entry.gate}'`);
+            }
+            continue;
+        }
+        if (entry.kind === 'beam') {
+            for (const g of entry.needs ?? [entry.gate]) {
+                if (!groups.has(g)) {
+                    errors.push(`legend '${ch}' (beam): unknown color group '${g}'`);
+                }
+            }
+            continue;
+        }
         if (entry.kind === 'arch') {
             for (const g of [...(entry.turnsOn ?? []), ...(entry.turnsOff ?? []), entry.shows]) {
                 if (!groups.has(g)) {
@@ -155,8 +169,11 @@ export function checkJumps(def) {
     // aura tiles count as there: Josepho's own light reaches whatever is near enough to jump to
     const aura = (ch) => legend[ch]?.kind === 'aura';
     const solid = (ch) =>
-        '#RB?GUP'.includes(ch) || legend[ch]?.kind === 'solid' || legend[ch]?.kind === 'timer' || (aura(ch) && legend[ch].look === 'block');
-    const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway' || aura(ch);
+        '#RB?GUP<>{}'.includes(ch) ||
+        legend[ch]?.kind === 'solid' ||
+        legend[ch]?.kind === 'timer' ||
+        (aura(ch) && legend[ch].look === 'block');
+    const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway' || aura(ch) || legend[ch]?.kind === 'beam';
     const free = (ch) => !solid(ch);
 
     // standable surfaces per column, joined into flat segments
@@ -262,7 +279,9 @@ export function checkJumps(def) {
     }
 
     // A hole one column wide that goes all the way down is almost always a slip in building the map.
-    const bottomless = (x) => [...Array(h).keys()].every((y) => !standOn(at(x, y)) && at(x, y) !== '~');
+    // (only the lower two thirds of the map count: a ceiling above is no floor)
+    const bottomless = (x) =>
+        [...Array(h).keys()].filter((y) => y >= Math.floor(h / 3)).every((y) => !standOn(at(x, y)) && at(x, y) !== '~');
     for (let x = 1; x < w - 1; x++) {
         if (bottomless(x) && !bottomless(x - 1) && !bottomless(x + 1)) {
             warnings.push(`column ${x} is a one-tile hole with no floor at all - falling in is death`);

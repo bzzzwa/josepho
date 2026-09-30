@@ -39,7 +39,7 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `colors` | `{ DIRT: '#hex', GRASS: '#hex', ... }` - replaces shared colors by their names in `C` (`colors.js`). |
 | `sky` | Three rows of six hex colors (pre-dawn, sunrise, morning): the level's own sky. |
 | `tree` | `'palm'` draws palms for `T` instead of round trees; `'treeAutumn'` draws trees whose leaves use the level's first three stripes (they light up while those colors are on). |
-| `background` | `'sea'`: low islands and open water behind, instead of hills; `'archive'`: a dark back wall with shelves of grey boxes. |
+| `background` | `'sea'`: low islands and open water behind, instead of hills; `'archive'`: a dark back wall with shelves of grey boxes; `'office'`: a grey wall with windows and filing cabinets. |
 | `dark` | `true`: the level is dark except around the lights (Josepho, lit lanterns, freed greylings). Fireflies drift about for the mood (their glow does not light aura tiles). At the flag the light spreads until the dark is gone. |
 | `leaves` | `true`: leaves fall through the air, in the colors of the first three stripes. |
 | `tint` | `0`-`1`: how strongly the whole world takes on the color of the last arch Josepho passed (an arch that turns on two colors: the upper sky one, the lower sky the other, the land both mixed). `0.25` is a soft tint. |
@@ -76,6 +76,8 @@ gated tiles can be walked through). The built-in groups are `sky`, `earth`, `gre
 | | | | `d` | driftwood (floats on the water below it) |
 | | | | `r` | leaping fish (sits in water; stranded when drained) |
 | | | | `k` | Skatulka: a box in the ground that rattles, pops up and snaps; it bites from the side, a stomp from above shuts it for good |
+| `>` `<` | slow sorting belt (carries right / left) | | `x` | stamp: hangs under the ceiling, shakes, drops on whoever steps under it |
+| `}` `{` | fast sorting belt | | `c` | clerk behind a counter (decoration) |
 
 ### The level's own gated tiles
 
@@ -89,7 +91,7 @@ legend: {
 ```
 
 - `gate` - the color group (a stripe id or a built-in group).
-- `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'`, `'arch'`, `'flyer'` or `'aura'`. Water whose color is on can be swum in; grey
+- `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'`, `'arch'`, `'flyer'`, `'aura'`, `'beam'` or `'lamp'`. Water whose color is on can be swum in; grey
   water has no volume at all, so Josepho drops through it to whatever is below (build a floor under it). A
   `'timer'` is a leaf block (see below) and also needs `seconds`. An `'arch'` is not a tile but an arch to walk
   through (see below); it has no `gate`. A `'flyer'` is not a tile either but a flutterer (see below).
@@ -129,6 +131,30 @@ tiles of Josepho, or near a lit lantern or a freed greyling. Lit, it shows in it
 is on or not); dark, it is a faint dotted outline. So bridges and stairs unfold in front of Josepho and fade behind.
 Keep aura jumps well inside Josepho's own light - the far ledge of a jump must be lit by the time Josepho gets
 there, which it is within 4 tiles.
+
+### Lamps and beam tiles
+
+A lamp (`kind: 'lamp'`, `gate` = its color) hangs under the ceiling on the cell of its character and shines a
+column of its color straight down, `width` tiles wide (3 by default), to the first solid tile. With `range`
+(tiles; + right first, - left first) and `speed` (pixels per frame) it rides a rail back and forth. A beam tile
+(`kind: 'beam'`, `look: 'ledge'`) has volume only in the light of a lamp of its `gate` color - or, with `needs`,
+only where the light of all those colors meets (`needs: ['magenta', 'blue']` for lavender).
+
+Rules the level 6 build taught:
+
+- Put beam bridges level with the floor: Josepho walks on with the light, and a bridge one tile higher is walked
+  under.
+- Let a moving lamp's end reach over the floor it starts from (and the one it ends at), so Josepho steps into light
+  that is already all around them.
+- Where two lamps meet over ledges of three colors, make their light wide enough (5 tiles) that the last ledge of
+  one color, the mixed ones and the first of the other are all lit at the meeting.
+
+### Stamps and belts
+
+A stamp (`x`) hangs under the ceiling. When Josepho steps under it, it shakes for half a second, drops like a stone,
+leaves a ZAMITNUTO mark on the floor and slowly rises again. It hurts while falling and lying down, never while
+shaking or rising; it cannot be stomped. Belts (`>` `<` slow, `}` `{` fast) are solid ground that carries whoever
+stands on it. A slow belt against Josepho under a stamp is passed at a run.
 
 ### Flutterers
 

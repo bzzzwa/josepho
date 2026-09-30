@@ -2,6 +2,26 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- Level 6 "Urad" (The office), 262 tiles: the Sorter's office, where every form has two boxes - blue or pink.
+  Office lamps shine magenta or blue: beam ledges have volume only in the light of their color, and lavender ones
+  only where the two lights meet - the way light mixes, and the middle stripe of the bi flag. Taught in four steps:
+  a fixed lamp, riding a moving lamp over a pit, lavender where a moving lamp passes a fixed one, and two lamps
+  meeting in the middle. Then the filing room, with belts under stamps. Three lanterns; lost shades on the harder
+  ways.
+- Stamps: they hang under the ceiling, shake when Josepho steps under them, drop and leave a ZAMITNUTO mark.
+- Sorting belts, slow and fast, that carry whoever stands on them.
+- The Sorter's clerks behind their counters, stamping forms. An office background with windows and filing cabinets.
+
+### Changed
+
+- The level bot waits for a lamp's light, walks with it, boards a moving light only while it moves on ahead, and
+  waits before a falling stamp.
+- The check for one-tile holes ignores ceilings (a ceiling above is no floor).
+
 ## 0.6.0 - 2026-09-29
 
 Level 5 "Archiv" (The archive).
