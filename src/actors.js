@@ -1405,13 +1405,16 @@ export class Lamp {
             const a = Math.min(this.homeX, this.homeX + this.range) - camX;
             gfx.rect(a - 4, top - 1, Math.abs(this.range) + 8, 1, C.GREY_DK);
         }
-        // the light: a dotted column
+        // the light: a dotted column, thick right under the lamp and thinning out below, so it reads as light
+        // coming out of the lamp
         const x0 = Math.round(x - this.width / 2);
         for (let y = top + 4; y < this.bottom - camY; y++) {
             if (y >= 0 && y < 108) {
-                gfx.ditherRow('dither25', x0, y, this.width, color, phase);
+                gfx.ditherRow(y - top < 14 ? 'dither50' : 'dither25', x0, y, this.width, color, phase);
             }
         }
+        // a glint on the shade
+        gfx.rect(x - 2, top + 4, 4, 1, color);
         gfx.rect(x - 1, top - 1, 2, 1, C.INK);
         gfx.draw('lamp', x - 4, top, this.offset);
     }

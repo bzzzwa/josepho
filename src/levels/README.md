@@ -44,6 +44,7 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `leaves` | `true`: leaves fall through the air, in the colors of the first three stripes. |
 | `tint` | `0`-`1`: how strongly the whole world takes on the color of the last arch Josepho passed (an arch that turns on two colors: the upper sky one, the lower sky the other, the land both mixed). `0.25` is a soft tint. |
 | `skyFlag` | Six hex colors, top to bottom: at the end of the level the sky shows them as the stripes of a flag for a few seconds. |
+| `cameraAbove` | How far below the top of the screen (pixels) the camera keeps Josepho. A level with things under its ceiling (lamps, stamps) sets it so floor and ceiling are on screen together (level 6: 88, with the ceiling 4 rows thick). |
 
 Texts are Czech, in capitals, and always gender-neutral for Josepho (present tense, no gendered endings).
 `npm run test:levels` reports any letter the pixel font cannot draw.
@@ -148,6 +149,8 @@ Rules the level 6 build taught:
   that is already all around them.
 - Where two lamps meet over ledges of three colors, make their light wide enough (5 tiles) that the last ledge of
   one color, the mixed ones and the first of the other are all lit at the meeting.
+- Keep lamps and stamps on screen: the player has to see where the light comes from and see a stamp shake. Hang
+  them right under a ceiling low enough for `theme.cameraAbove` to show it with the floor.
 
 ### Stamps and belts
 

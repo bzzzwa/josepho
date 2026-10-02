@@ -15,6 +15,9 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
 - Stamps: they hang under the ceiling, shake when Josepho steps under them, drop and leave a ZAMITNUTO mark.
 - Sorting belts, slow and fast, that carry whoever stands on them.
 - The Sorter's clerks behind their counters, stamping forms. An office background with windows and filing cabinets.
+- `theme.cameraAbove`: a level can keep Josepho lower or higher on screen. The office uses it so its low ceiling,
+  with the lamps and stamps hanging under it, is always in view; the light is thicker right under a lamp, so it
+  reads as coming from it.
 
 ### Changed
 

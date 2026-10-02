@@ -1577,7 +1577,7 @@ export class Game {
     }
 
     cameraAbove() {
-        return this.level.h > 14 ? CAMERA_ABOVE_TALL : CAMERA_ABOVE;
+        return this.def?.theme?.cameraAbove ?? (this.level.h > 14 ? CAMERA_ABOVE_TALL : CAMERA_ABOVE);
     }
 
     snapCamera() {
