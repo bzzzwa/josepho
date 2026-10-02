@@ -654,6 +654,46 @@ const recolor = (rows) => rows.map((r) => r.replace(/g/g, '2').replace(/h/g, '4'
 const greylingFree0 = recolor(greyling0);
 const greylingFree1 = recolor(greyling1);
 
+// Sorting belt (level 6), 8 x 8: a metal band over rollers (the chevrons are drawn on top by the world).
+const belt = ['KKKKKKKK', 'gggggggg', 'KKKKKKKK', 'KKKKKKKK', 'KKKKKKKK', 'gggggggg', 'hKhhKhhK', 'KhKKhKKh'];
+
+// Office lamp (level 6), 8 x 4: a shade in the hint shades of its color only (drawn with a palette offset;
+// its cord is drawn apart).
+const lamp = ['..----..', '.-++++-.', '-++++++-', '+------+'];
+
+// Stamp (level 6), 16 x 12: the Sorter's rubber stamp - a handle and a heavy block with a red face.
+const stamp = [
+    '......KKKK......',
+    '......KhhK......',
+    '......KhhK......',
+    '.....KKhhKK.....',
+    'KKKKKKKKKKKKKKKK',
+    'KiiiiiiiiiiiiiiK',
+    'KhhhhhhhhhhhhhhK',
+    'KhhhhhhhhhhhhhhK',
+    'KggggggggggggggK',
+    'KKKKKKKKKKKKKKKK',
+    'KPPPPPPPPPPPPPPK',
+    '.KKKKKKKKKKKKKK.',
+];
+
+// A clerk of the Sorter (level 6), 10 x 12, behind the counter: a box for a head, stamping away.
+const clerk0 = [
+    '.KKKKKKK..',
+    '.KiiiiiK..',
+    '.KhWKhhK..',
+    '.KhhhhhK..',
+    '.KKKKKKK..',
+    '...KgK....',
+    '.KKgggKK..',
+    'KgggggggK.',
+    'KgKgggKgK.',
+    'KgKgggKhhK',
+    'KgKgggKhhK',
+    'KKKKKKKKKK',
+];
+const clerk1 = clerk0.map((r, i) => (i === 8 ? 'KgKgggKgKK' : i === 9 ? 'KgKgggKKhh' : i === 10 ? 'KgKgggKKhh' : r));
+
 // HUD icons.
 const hudMote = ['.nn.', 'nmmn', 'nmmn', '.nn.'];
 const hudPrismOff = ['..U..', '.UuU.', 'UuuuU', '.UuU.', '..U..'];
@@ -769,6 +809,11 @@ export const SPRITES = {
     hudShadeOn: hudShadeOn,
     hudShadeOff: hudShadeOff,
     arch: arch,
+    belt: belt,
+    lamp: lamp,
+    stamp: stamp,
+    clerk0: clerk0,
+    clerk1: clerk1,
     hLedge: hLedge,
     hBlock: hBlock,
     greylingFree0: greylingFree0,

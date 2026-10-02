@@ -9,12 +9,15 @@ export const TILE = 8;
 export const SUB = 16;
 const SWITCH_REST = 20; // frames a tide switch ignores bumps after flipping (longer while Josepho stays beneath)
 
-const SOLID = new Set(['#', 'R', 'B', '?', 'G', 'U', 'P']);
+const SOLID = new Set(['#', 'R', 'B', '?', 'G', 'U', 'P', '<', '>', '{', '}']);
+// sorting belts (level 6): they carry whoever stands on them, pixels per frame (+ right, - left)
+export const BELTS = { '<': -0.5, '>': 0.5, '{': -1, '}': 1 };
 // P is the tide switch: a block that flips the level's two `switches` colors each time it is bumped
 // ',' is backdrop: empty air drawn as a dark wall behind (the inside of a pit or a cave)
-export const TILE_CHARS = new Set(['.', ',', '#', 'R', 'B', '?', 'G', 'U', 'P', '=', '~', '^']);
+export const TILE_CHARS = new Set(['.', ',', '#', 'R', 'B', '?', 'G', 'U', 'P', '=', '~', '^', '<', '>', '{', '}']);
 export const ENTITY_CHARS = new Set([
     '@', 'o', 'e', 't', 's', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F', 'l', 'b', 'f', 'T', 'd', 'r', 'z', 'k',
+    'x', 'c',
 ]);
 
 // Color-gated tiles every level knows. A level adds its own in `legend` (see src/levels/README.md):
@@ -23,7 +26,10 @@ export const ENTITY_CHARS = new Set([
 //         'arch' (not a tile: an arch to walk through - see the Arch object in actors.js), or
 //         'flyer' (not a tile: a flutterer whose wings are the gate's color - see Flyer in actors.js), or
 //         'aura' (a ledge - or with look 'block' a block - that has volume only in light: near Josepho, a lit
-//         lantern or a freed greyling; drawn in the gate's color while lit)
+//         lantern or a freed greyling; drawn in the gate's color while lit), or
+//         'beam' (a ledge with volume only in the light of lamps of its color - or, with `needs`, only where
+//         the light of all those colors meets), or
+//         'lamp' (not a tile: an office lamp shining its color down - see Lamp in actors.js)
 //   gate  the color group that must be on for the tile to have volume (a timer: the group it turns on)
 //   look  which art to draw: leaf, cloud, block, ledge, water
 export const BUILTIN_LEGEND = {
@@ -47,7 +53,7 @@ export class Level {
         this.tiles = def.map.map((row) => [...row]);
         this.spawns = [];
         // a level's arches and flutterers (legend kind 'arch', 'flyer') are objects, not tiles
-        const objectKinds = new Set(['arch', 'flyer']);
+        const objectKinds = new Set(['arch', 'flyer', 'lamp']);
         const archChars = new Set(Object.entries(def.legend ?? {}).filter(([, e]) => objectKinds.has(e.kind)).map(([c]) => c));
         for (let y = 0; y < this.h; y++) {
             for (let x = 0; x < this.w; x++) {
@@ -79,6 +85,8 @@ export class Level {
         this.blinking = new Set();
         // lights for aura tiles, set by the game every frame: [{ x, y, r }] in pixels
         this.lights = [];
+        // the lamps' beams for beam tiles, set by the game every frame: [{ x0, x1, y0, y1, gate }] in pixels
+        this.beams = [];
         // tile bounce animations: key "x,y" -> frames left
         this.bumps = new Map();
         // tiles changed while playing ("x,y" -> new character), so a saved game can put them back
@@ -163,7 +171,29 @@ export class Level {
             return true;
         }
         const e = this.legend[ch];
+        if (e?.kind === 'beam') {
+            return this.inBeams(e, tx, ty);
+        }
         return e?.kind === 'aura' && e.look !== 'block' && this.litAt(tx, ty);
+    }
+
+    /**
+     * Is this beam tile in the light it needs - a lamp of its color, or (with `needs`) lamps of all those colors
+     * at once? (No position: yes - "is the tile there at all".)
+     */
+    inBeams(entry, tx, ty) {
+        if (tx === undefined) {
+            return true;
+        }
+        const x = tx * TILE + 4;
+        const y = ty * TILE + 4;
+        const lit = (gate) => this.beams.some((b) => b.gate === gate && x >= b.x0 && x < b.x1 && y >= b.y0 && y < b.y1);
+        return (entry.needs ?? [entry.gate]).every(lit);
+    }
+
+    /** The belt speed (pixels per frame) of the tile under a point, or 0. */
+    beltAt(px, py) {
+        return BELTS[this.tile(Math.floor(px / TILE), Math.floor(py / TILE))] ?? 0;
     }
 
     /** Is the point (in pixels) inside water whose color is on? Grey water has no volume at all. */
@@ -366,6 +396,23 @@ export class Level {
             case '~':
                 gfx.draw(this.tile(tx, ty - 1) === '~' ? 'water' : 'waterTop', x, y);
                 break;
+            case '<':
+            case '>':
+            case '{':
+            case '}': {
+                // a sorting belt: a metal band whose chevrons slide the way it runs
+                gfx.draw('belt', x, y);
+                const speed = BELTS[ch];
+                const shift = Math.floor(this.tick * Math.abs(speed)) % 4;
+                for (let i = 0; i < 2; i++) {
+                    const cx = x + ((i * 4 + (speed > 0 ? shift : 3 - shift)) % 8);
+                    const d = speed > 0 ? 1 : -1;
+                    gfx.pixel(cx, y + 2, C.GREY_LT);
+                    gfx.pixel(cx + d, y + 3, C.GREY_LT);
+                    gfx.pixel(cx, y + 4, C.GREY_LT);
+                }
+                break;
+            }
             case '^':
                 gfx.draw('spikes', x, y);
                 break;
@@ -387,6 +434,15 @@ export class Level {
     drawGated(gfx, entry, tx, x, y) {
         // about to run out: blink between the tile and its ghost
         const on = !!this.gates[entry.gate] && !(this.blinking.has(entry.gate) && Math.floor(this.tick / 5) % 2);
+        if (entry.kind === 'beam') {
+            const ty = Math.floor((y + 4) / TILE);
+            if (this.inBeams(entry, tx, ty)) {
+                gfx.draw('hLedge', x, y, (this.stripeIndex[entry.gate] ?? 0) * HINT_SHADES);
+            } else {
+                gfx.draw('sLedgeGhost', x, y, (this.stripeIndex[entry.gate] ?? 0) * STRIPE_SHADES);
+            }
+            return;
+        }
         if (entry.kind === 'aura') {
             // lit: its color (hint shades - they keep their color); dark: a faint dotted outline
             const ty = Math.floor((y + 4) / TILE);
