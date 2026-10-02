@@ -8,10 +8,10 @@ nonbinary being (they/them) - fits in neither box, and so Josepho still carries 
 palette itself comes back to life: first the grass, then the sky, then the flowers. Returning colors also change the
 world - leaves, clouds and bell flowers only become solid once their color is back.
 
-Current version: **0.6.0** - five of ten levels: "Svitani" (Dawn), "Melciny" (Shallows), "Opadavani"
-(Falling leaves), "Dva brehy" (Two banks) and "Archiv" (The archive), with the world map of Lumen and saved
-progress; playable on computers, phones and tablets. See `CHANGELOG.md`. The story of the whole game is in
-`docs/pribeh.md` (Czech).
+Current version: **0.7.0** - six of ten levels: "Svitani" (Dawn), "Melciny" (Shallows), "Opadavani"
+(Falling leaves), "Dva brehy" (Two banks), "Archiv" (The archive) and "Urad" (The office), with the world map of
+Lumen and saved progress; playable on computers, phones and tablets. See `CHANGELOG.md`. The story of the whole
+game is in `docs/pribeh.md` (Czech).
 
 **Play it in your browser: https://bzzzwa.github.io/josepho/**
 

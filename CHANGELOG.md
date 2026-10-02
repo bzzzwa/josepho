@@ -2,7 +2,9 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.7.0 - 2026-10-02
+
+Level 6 "Urad" (The office).
 
 ### Added
 
