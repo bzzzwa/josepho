@@ -9,15 +9,16 @@ export const TILE = 8;
 export const SUB = 16;
 const SWITCH_REST = 20; // frames a tide switch ignores bumps after flipping (longer while Josepho stays beneath)
 
-const SOLID = new Set(['#', 'R', 'B', '?', 'G', 'U', 'P', '<', '>', '{', '}']);
+const SOLID = new Set(['#', 'R', 'B', '?', 'G', 'U', 'P', '<', '>', '{', '}', 'I']);
+// I is ice (level 7): solid, but slippery. E is a fence of the Sorter's: solid until a freed greyling takes it apart.
 // sorting belts (level 6): they carry whoever stands on them, pixels per frame (+ right, - left)
 export const BELTS = { '<': -0.5, '>': 0.5, '{': -1, '}': 1 };
 // P is the tide switch: a block that flips the level's two `switches` colors each time it is bumped
 // ',' is backdrop: empty air drawn as a dark wall behind (the inside of a pit or a cave)
-export const TILE_CHARS = new Set(['.', ',', '#', 'R', 'B', '?', 'G', 'U', 'P', '=', '~', '^', '<', '>', '{', '}']);
+export const TILE_CHARS = new Set(['.', ',', '#', 'R', 'B', '?', 'G', 'U', 'P', '=', '~', '^', '<', '>', '{', '}', 'I', 'E']);
 export const ENTITY_CHARS = new Set([
     '@', 'o', 'e', 't', 's', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F', 'l', 'b', 'f', 'T', 'd', 'r', 'z', 'k',
-    'x', 'c',
+    'x', 'c', 'i', 'a',
 ]);
 
 // Color-gated tiles every level knows. A level adds its own in `legend` (see src/levels/README.md):
@@ -29,7 +30,12 @@ export const ENTITY_CHARS = new Set([
 //         lantern or a freed greyling; drawn in the gate's color while lit), or
 //         'beam' (a ledge with volume only in the light of lamps of its color - or, with `needs`, only where
 //         the light of all those colors meets), or
-//         'lamp' (not a tile: an office lamp shining its color down - see Lamp in actors.js)
+//         'lamp' (not a tile: an office lamp shining its color down - see Lamp in actors.js), or
+//         'pulse' (a ledge of the aurora: it has volume only while its gate is the color of the level's rhythm
+//         right now - see `pulse` in the level), or
+//         'arc' (a ledge of a field line: volume only while both poles of its `pair` are awake; with `pulses`
+//         also only in its gate's turn of the rhythm), or
+//         'pole' (not a tile: a compass stone, `side` 'N' or 'S' of `pair` - see Pole in actors.js)
 //   gate  the color group that must be on for the tile to have volume (a timer: the group it turns on)
 //   look  which art to draw: leaf, cloud, block, ledge, water
 export const BUILTIN_LEGEND = {
@@ -53,7 +59,7 @@ export class Level {
         this.tiles = def.map.map((row) => [...row]);
         this.spawns = [];
         // a level's arches and flutterers (legend kind 'arch', 'flyer') are objects, not tiles
-        const objectKinds = new Set(['arch', 'flyer', 'lamp']);
+        const objectKinds = new Set(['arch', 'flyer', 'lamp', 'pole']);
         const archChars = new Set(Object.entries(def.legend ?? {}).filter(([, e]) => objectKinds.has(e.kind)).map(([c]) => c));
         for (let y = 0; y < this.h; y++) {
             for (let x = 0; x < this.w; x++) {
@@ -87,6 +93,13 @@ export class Level {
         this.lights = [];
         // the lamps' beams for beam tiles, set by the game every frame: [{ x0, x1, y0, y1, gate }] in pixels
         this.beams = [];
+        // the rhythm of the aurora (level 7), set by the game: the color whose turn it is, the next one, and
+        // how many frames until the turn passes
+        this.pulse = { now: null, next: null, left: 0 };
+        // pairs of compass stones with both poles awake: their field lines (arc tiles) have volume
+        this.arcsOn = new Set();
+        // fences taken apart (by column)
+        this.openFences = new Set();
         // tile bounce animations: key "x,y" -> frames left
         this.bumps = new Map();
         // tiles changed while playing ("x,y" -> new character), so a saved game can put them back
@@ -145,6 +158,9 @@ export class Level {
         if (SOLID.has(ch) || this.gatedOn(ch, 'solid') || this.legend[ch]?.kind === 'timer') {
             return true;
         }
+        if (ch === 'E') {
+            return !this.openFences.has(tx);
+        }
         const e = this.legend[ch];
         return e?.kind === 'aura' && e.look === 'block' && this.litAt(tx, ty);
     }
@@ -174,6 +190,9 @@ export class Level {
         if (e?.kind === 'beam') {
             return this.inBeams(e, tx, ty);
         }
+        if (e?.kind === 'pulse' || e?.kind === 'arc') {
+            return tx === undefined || this.ledgeOn(e);
+        }
         return e?.kind === 'aura' && e.look !== 'block' && this.litAt(tx, ty);
     }
 
@@ -189,6 +208,22 @@ export class Level {
         const y = ty * TILE + 4;
         const lit = (gate) => this.beams.some((b) => b.gate === gate && x >= b.x0 && x < b.x1 && y >= b.y0 && y < b.y1);
         return (entry.needs ?? [entry.gate]).every(lit);
+    }
+
+    /** Has this pulse or arc ledge volume right now? */
+    ledgeOn(e) {
+        if (e.kind === 'arc' && !this.arcsOn.has(e.pair)) {
+            return false;
+        }
+        if (e.kind === 'pulse' || e.pulses) {
+            return this.pulse.now === e.gate;
+        }
+        return true;
+    }
+
+    /** Is the tile under a point ice? */
+    iceAt(px, py) {
+        return this.tile(Math.floor(px / TILE), Math.floor(py / TILE)) === 'I';
     }
 
     /** The belt speed (pixels per frame) of the tile under a point, or 0. */
@@ -396,6 +431,16 @@ export class Level {
             case '~':
                 gfx.draw(this.tile(tx, ty - 1) === '~' ? 'water' : 'waterTop', x, y);
                 break;
+            case 'I':
+                gfx.draw('ice', x, y);
+                break;
+            case 'E':
+                if (!this.openFences.has(tx)) {
+                    gfx.draw('fence', x, y);
+                } else if (this.tile(tx, Math.floor(y / TILE) + 1) !== 'E') {
+                    gfx.draw('fenceDown', x, y);
+                }
+                break;
             case '<':
             case '>':
             case '{':
@@ -434,6 +479,20 @@ export class Level {
     drawGated(gfx, entry, tx, x, y) {
         // about to run out: blink between the tile and its ghost
         const on = !!this.gates[entry.gate] && !(this.blinking.has(entry.gate) && Math.floor(this.tick / 5) % 2);
+        if (entry.kind === 'pulse' || entry.kind === 'arc') {
+            // its turn: lit; its turn coming (the last half second): flickering in; otherwise a faint outline
+            const k = (this.stripeIndex[entry.gate] ?? 0);
+            const on = this.ledgeOn(entry);
+            const waiting = entry.kind === 'arc' && !this.arcsOn.has(entry.pair);
+            const coming = !waiting && (entry.kind === 'pulse' || entry.pulses) && this.pulse.next === entry.gate && this.pulse.left < 30;
+            const going = on && (entry.kind === 'pulse' || entry.pulses) && this.pulse.left < 30;
+            if ((on && !(going && Math.floor(this.tick / 3) % 2)) || (coming && Math.floor(this.tick / 3) % 2)) {
+                gfx.draw('hLedge', x, y, k * HINT_SHADES);
+            } else {
+                gfx.draw('sLedgeGhost', x, y, k * STRIPE_SHADES);
+            }
+            return;
+        }
         if (entry.kind === 'beam') {
             const ty = Math.floor((y + 4) / TILE);
             if (this.inBeams(entry, tx, ty)) {

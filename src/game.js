@@ -35,11 +35,14 @@ import {
     Firefly,
     Fish,
     Flyer,
+    Fox,
     GreatPrism,
     Greyling,
+    Icicle,
     Lamp,
     Lantern,
     Mote,
+    Pole,
     Petal,
     PHYS,
     Player,
@@ -217,6 +220,7 @@ export class Game {
         this.useSpec(createPaletteSpec({ colors: def.theme?.colors, sky: def.theme?.sky, stripes: def.spectrum ?? [] }));
         this.level = new Level(def);
         this.background = new Background(this.level.pw, def.theme?.background);
+        this.background.stripes = (def.spectrum ?? []).length;
         this.motes = [];
         this.prisms = [];
         this.lanterns = [];
@@ -226,6 +230,11 @@ export class Game {
         this.drifts = [];
         this.arches = [];
         this.lamps = []; // office lamps (level 6)
+        this.poles = []; // compass stones (level 7)
+        this.foxes = [];
+        this.pulseT = 0; // the aurora's rhythm (level 7)
+        this.windT = 0;
+        this.fencesOpened = 0;
         this.marks = []; // ZAMITNUTO marks the stamps left on the floor
         this.freed = 0; // greylings freed in this level (level 5 on)
         this.freedSpawns = new Set(); // their map cells ("x,y"), so they are not spawned grey again
@@ -301,6 +310,11 @@ export class Game {
                         this.arches.push(new Arch(s.tx, s.ty, def.legend[s.ch], this.level.stripeIndex));
                     } else if (def.legend?.[s.ch]?.kind === 'lamp') {
                         this.lamps.push(new Lamp(s.tx, s.ty, def.legend[s.ch], this.level.stripeIndex));
+                    } else if (def.legend?.[s.ch]?.kind === 'pole') {
+                        this.poles.push(new Pole(s.tx, s.ty, def.legend[s.ch], this.level.stripeIndex));
+                    } else if (s.ch === 'a') {
+                        // an arctic fox: white on ice, brown on the tundra
+                        this.foxes.push(new Fox(s.tx, s.ty, this.level.tile(s.tx, s.ty + 1) === 'I'));
                     }
             }
         }
@@ -349,6 +363,8 @@ export class Game {
                 this.enemies.push(new Skatulka(s.tx, s.ty));
             } else if (s.ch === 'x') {
                 this.enemies.push(new Stamp(s.tx, s.ty));
+            } else if (s.ch === 'i') {
+                this.enemies.push(new Icicle(s.tx, s.ty));
             } else if (this.def.legend?.[s.ch]?.kind === 'flyer') {
                 this.enemies.push(new Flyer(s.tx, s.ty, this.def.legend[s.ch], this.level.stripeIndex));
             }
@@ -594,6 +610,10 @@ export class Game {
     startLevel(number, resume = false) {
         this.loadLevel(number);
         this.resetChroma(this.def.startOn ?? []);
+        // field lines of compass stones that are awake from the start (after the colors are reset)
+        for (const pole of this.poles) {
+            this.checkField(pole.pair, false);
+        }
         const saved = this.save.inProgress;
         if (resume && saved?.level === this.levelNumber) {
             this.restoreProgress(saved);
@@ -624,6 +644,8 @@ export class Game {
             sortedAs: this.sortedAs,
             sortedBy: this.sortedBy,
             freed: [...this.freedSpawns],
+            poles: this.poles.filter((p) => p.awake).map((p) => `${p.pair}${p.side}`),
+            fences: [...this.level.openFences],
         };
         writeSave(this.save);
     }
@@ -674,6 +696,18 @@ export class Game {
                 this.chroma.tint.rgb = [...this.tintColors[0]];
                 this.chroma.tint.rgbLow = [...this.tintColors[1]];
             }
+        }
+        // the north: awake poles (and their field lines), and fences already taken apart
+        for (const pole of this.poles) {
+            if ((p.poles ?? []).includes(`${pole.pair}${pole.side}`)) {
+                pole.awake = true;
+            }
+        }
+        for (const pole of this.poles) {
+            this.checkField(pole.pair, false);
+        }
+        for (const x of p.fences ?? []) {
+            this.level.openFences.add(x);
         }
         // freed greylings stay free; in a dark level they fly along again (as many as there is room for)
         this.freedSpawns = new Set(p.freed ?? []);
@@ -807,6 +841,8 @@ export class Game {
             l.update(this.level);
         }
         this.level.beams = this.lamps.map((l) => l.beam);
+        this.updateNorth();
+        this.background.herdRun = this.fencesOpened;
         if (this.talk) {
             // a conversation holds the game still until it is read
             this.updateTalk(inp);
@@ -819,6 +855,7 @@ export class Game {
         p.update(inp, this);
         this.landOnDrift(p);
         this.rideBelt(p);
+        this.blowWind(p);
         if (!p.dead) {
             this.updateArches(p, prevCx);
             this.startTalks(p);
@@ -890,6 +927,7 @@ export class Game {
                     this.companions.push(new Companion(e.px, e.py, this.companions.length));
                 } else {
                     e.free();
+                    this.openFencesNear(e.px);
                 }
                 p.vy = -(inp.jump ? PHYS.stompBounce + 14 : PHYS.stompBounce);
                 p.jumping = inp.jump;
@@ -1196,6 +1234,128 @@ export class Game {
                     gfx.ditherRow('dither50', from, y, b - from, C.INK);
                 }
             }
+        }
+    }
+
+    /**
+     * Level 7: the aurora's rhythm (whose color's turn it is, a tone half a second before it passes), the compass
+     * stones (both poles of a pair awake: its field line gets volume), the foxes, and the snow.
+     */
+    updateNorth() {
+        const pulse = this.def.pulse;
+        if (pulse) {
+            this.pulseT++;
+            const turn = Math.floor(this.pulseT / pulse.period);
+            const order = pulse.order;
+            const left = pulse.period - (this.pulseT % pulse.period);
+            this.level.pulse = { now: order[turn % order.length], next: order[(turn + 1) % order.length], left };
+            if (left === 30) {
+                this.sound.play('text', { pitch: 1.6 });
+            } else if (left === pulse.period) {
+                this.sound.play('lantern', { pitch: 1.2, volume: 0.4 });
+            }
+        }
+        for (const pole of this.poles) {
+            if (!pole.awake && pole.touches(this.player)) {
+                pole.awake = true;
+                this.sound.play('lantern', { pitch: pole.side === 'N' ? 1.0 : 1.3 });
+                this.fx.ring(pole.x + 4, pole.bottom - 4, 2.5, C.WHITE, 26);
+                this.checkField(pole.pair, true);
+            }
+        }
+        for (const f of this.foxes) {
+            f.update(this.player);
+        }
+        if (this.def.theme?.snow && this.tick % 6 === 0) {
+            const gust = this.gusting();
+            this.fx.add({
+                kind: 'leaf',
+                x: this.camX + Math.random() * (SCREEN_W + 60) - (gust ? 60 : 0),
+                y: this.camY - 2,
+                vx: gust ? 2.6 : -0.1,
+                vy: 0.4 + Math.random() * 0.3,
+                life: 300,
+                phase: Math.random() * 6,
+                color: C.WHITE,
+            });
+        }
+    }
+
+    /** Both poles of a pair awake: its field line rises (and colors may come back with it). */
+    checkField(pair, loud) {
+        const both = ['N', 'S'].every((side) => this.poles.some((p) => p.pair === pair && p.side === side && p.awake));
+        if (!both || this.level.arcsOn.has(pair)) {
+            return;
+        }
+        this.level.arcsOn.add(pair);
+        const pole = this.poles.find((p) => p.pair === pair);
+        if (pole?.turnsOn.length) {
+            this.turnOn(pole.turnsOn, !loud);
+        }
+        if (loud) {
+            this.sound.arpeggio([62, 69, 74, 78], 5, 'bell', 1);
+            this.banner = { text: 'SEVER A JIH SE SPOJILY', t: 0 };
+        }
+    }
+
+    /** Is a gust of wind blowing right now (levels with `wind`)? And is one about to (the snow says so)? */
+    gusting() {
+        const w = this.def.wind;
+        if (!w) {
+            return false;
+        }
+        const t = this.windT % w.period;
+        return t >= w.warn && t < w.warn + w.gust;
+    }
+
+    /** A gust pushes Josepho along (more in the air), inside the wind's zones. */
+    blowWind(p) {
+        const w = this.def.wind;
+        if (!w || p.dead) {
+            return;
+        }
+        this.windT++;
+        if (!this.gusting()) {
+            return;
+        }
+        const col = p.cx / TILE;
+        if (!w.zones.some(([a, b]) => col >= a && col <= b)) {
+            return;
+        }
+        const push = w.strength * (p.onGround ? 0.5 : 1);
+        if (!this.level.collides(p.px + Math.sign(push), p.py, p.w, p.h)) {
+            p.x += push * SUB;
+        }
+    }
+
+    /** A greyling freed near a fence: it takes the fence apart (any fence within 12 tiles, all of it). */
+    openFencesNear(px) {
+        const c = Math.floor(px / TILE);
+        const isFence = (x) => this.level.def.map.some((row) => row[x] === 'E');
+        let opened = false;
+        const open = (x) => {
+            if (!this.level.openFences.has(x)) {
+                this.level.openFences.add(x);
+                opened = true;
+                this.fx.burst(x * TILE + 4, (this.level.h - 8) * TILE, 8, [C.WOOD, C.WOOD_DK], 1.2);
+            }
+        };
+        for (let x = c - 12; x <= c + 12; x++) {
+            if (isFence(x)) {
+                // the whole fence, every column of it
+                open(x);
+                for (let l = x - 1; isFence(l); l--) {
+                    open(l);
+                }
+                for (let r = x + 1; isFence(r); r++) {
+                    open(r);
+                }
+            }
+        }
+        if (opened) {
+            this.fencesOpened++;
+            this.sound.play('break');
+            this.banner = { text: 'PLOT JE PRYČ', t: 0 };
         }
     }
 
@@ -1765,6 +1925,12 @@ export class Game {
             const k = this.level.stripeIndex[l.gate] ?? 0;
             l.render(gfx, cx, cy, HINT0 + k * HINT_SHADES, k);
         });
+        for (const pole of this.poles) {
+            pole.render(gfx, cx, cy);
+        }
+        for (const f of this.foxes) {
+            f.render(gfx, cx, cy);
+        }
 
         for (const d of this.decor) {
             if (d.ch === 'f') {

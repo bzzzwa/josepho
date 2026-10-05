@@ -2,7 +2,7 @@
 // ranges of hills that slide past at different speeds (parallax) so the flat screen feels deep.
 // Every color here is a palette slot whose meaning changes with the dawn, so nothing is recolored by hand.
 
-import { C } from './colors.js';
+import { C, STRIPE0, STRIPE_SHADES } from './colors.js';
 
 const SCREEN_W = 192;
 const SCREEN_H = 108;
@@ -130,6 +130,10 @@ export class Background {
             this.renderOffice(gfx, camX);
             return;
         }
+        if (this.style === 'tundra') {
+            this.renderTundra(gfx, camX, tick);
+            return;
+        }
 
         // Mid hills.
         const mo = Math.floor(camX * MID_SPEED);
@@ -140,6 +144,54 @@ export class Background {
             if (this.mid[i + 1] > top) {
                 gfx.pixel(sx2, top, C.MID_HI);
             }
+        }
+    }
+
+    /**
+     * The far north at night: a dark sky with curtains of aurora (in the level's stripe colors - grey until they
+     * come back), snowy hills, and a herd of reindeer that starts to run once a fence is gone (`herdRun`).
+     */
+    renderTundra(gfx, camX, tick) {
+        gfx.rect(0, 0, SCREEN_W, SCREEN_H, C.SKY0);
+        gfx.rect(0, 40, SCREEN_W, 30, C.SKY0 + 1);
+        gfx.ditherRow('dither50', 0, 40, SCREEN_W, C.SKY0 + 1);
+        // stars
+        for (let i = 0; i < 24; i++) {
+            const sx = (i * 47 + Math.floor(camX * 0.05)) % SCREEN_W;
+            gfx.pixel(SCREEN_W - 1 - sx, (i * 13) % 40, C.GREY_LT);
+        }
+        // aurora curtains: wavy vertical streaks drifting slowly
+        const off = camX * 0.1;
+        for (let x = 0; x < SCREEN_W; x += 2) {
+            const wx = x + off;
+            const k = Math.floor((Math.sin(wx * 0.013) + 1) * 1.99) % Math.max(1, this.stripes ?? 1);
+            const top = 8 + Math.sin(wx * 0.05 + tick * 0.01) * 6 + Math.sin(wx * 0.017) * 8;
+            const len = 18 + Math.sin(wx * 0.031 + tick * 0.013) * 8;
+            if (Math.sin(wx * 0.021 + tick * 0.004) > -0.2) {
+                gfx.rect(x, Math.round(top), 1, Math.round(len), STRIPE0 + k * STRIPE_SHADES + 1);
+                gfx.rect(x, Math.round(top + len), 1, 4, STRIPE0 + k * STRIPE_SHADES);
+            }
+        }
+        // snowy hills
+        const mo = Math.floor(camX * 0.3);
+        for (let sx = 0; sx < SCREEN_W; sx++) {
+            const i = Math.max(0, Math.min(this.mid.length - 1, sx + mo));
+            const top = this.mid[i] + 4;
+            gfx.rect(sx, top, 1, SCREEN_H - top, C.GREY_LT);
+            gfx.pixel(sx, top, C.WHITE);
+        }
+        // the herd
+        const run = (this.herdRun ?? 0) > 0 ? tick * 0.6 : 0;
+        for (let r = 0; r < 6; r++) {
+            const hx = Math.round(((r * 29 + 40 - camX * 0.3 + run) % 320) + 320) % 320 - 60;
+            const hy = 78 + (r % 3) * 3;
+            gfx.rect(hx, hy, 7, 3, C.INK);
+            gfx.rect(hx + 6, hy - 2, 2, 2, C.INK);
+            gfx.pixel(hx + 7, hy - 4, C.INK);
+            gfx.pixel(hx + 5, hy - 4, C.INK);
+            const leg = run ? Math.floor(tick / 6 + r) % 2 : 0;
+            gfx.rect(hx + leg, hy + 3, 1, 2, C.INK);
+            gfx.rect(hx + 5 - leg, hy + 3, 1, 2, C.INK);
         }
     }
 

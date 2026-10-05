@@ -2,6 +2,24 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- Level 7 "Polarni zare" (Northern lights), 262 tiles: the far north, where the Sorter tries to sort the tundra -
+  and nature, where everything is connected, will not be sorted. The aurora pulses in a rhythm: its green and
+  violet ledges carry Josepho only in their color's turn, with a tone and a flicker half a second before each turn
+  passes. Compass stones: a pole alone does nothing, but once both poles of a pair are awake, a curved field line
+  rises between them - the first bridges that are not straight - and colors come back to the aurora in the sky.
+  Ice, gusts of wind (the snow warns of them), icicles under an overhang, the arctic fox (white on ice, brown on
+  the tundra), lichen, and the Sorter's fences on the tundra, which a freed greyling takes apart - and then the
+  reindeer in the background run again. A night sky with aurora curtains. Three lanterns, three lost shades.
+
+### Changed
+
+- The level bot walks along the aurora's ledges and stands across the border of two colors to let the turn carry
+  it, wakes compass stones on its way, waits before falling icicles, and frees the greyling at a fence.
+
 ## 0.7.0 - 2026-10-02
 
 Level 6 "Urad" (The office).
