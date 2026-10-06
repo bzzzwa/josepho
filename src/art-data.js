@@ -694,6 +694,19 @@ const clerk0 = [
 ];
 const clerk1 = clerk0.map((r, i) => (i === 8 ? 'KgKgggKgKK' : i === 9 ? 'KgKgggKKhh' : i === 10 ? 'KgKgggKKhh' : r));
 
+// Level 7: ice (a pale block with a glint), a fence of the Sorter's and its broken stub, a compass stone (its
+// glow in a stripe's hint shades, drawn apart), an icicle, and the arctic fox in its winter and summer coat.
+const ice = ['WWWWWWWW', 'WiiiWiiW', 'iiWiiiii', 'iiiiiiWi', 'iWiiiiii', 'iiiiiWii', 'iiiiiiii', 'hhhhhhhh'];
+const fence = ['.KK..KK.', '.hK..hK.', 'KKKKKKKK', 'hhhhhhhh', '.hK..hK.', '.hK..hK.', 'KKKKKKKK', 'hhhhhhhh'];
+const fenceDown = ['........', '........', '........', '........', '........', '.......K', 'KK..KKhh', 'hhKKhh..'];
+const pole = ['..KKKK..', '.KhhhhK.', 'KhhhhhhK', 'KhhhhhhK', 'KhhhhhhK', 'KhhhhhhK', 'KKKKKKKK'];
+const poleGlow = ['........', '...++...', '..+--+..', '..+--+..', '...++...', '........', '........'];
+const icicle = ['WWWWWW', '.WiiW.', '.WiiW.', '..Wi..', '..Wi..', '..W...', '..W...'];
+const fox0 = ['W.....W...', 'WW...WW...', 'WWWWWWW...', 'WKWWWKW..W', 'WWWWWWWWWW', '.WWWWWWWW.', '.W.W..W.W.'];
+const fox1 = ['W.....W...', 'WW...WW...', 'WWWWWWW...', 'WKWWWKW...', 'WWWWWWWWWW', '.WWWWWWWWW', 'W.W....W.W'];
+const foxBrown0 = fox0.map((r) => r.replace(/W/g, 'O'));
+const foxBrown1 = fox1.map((r) => r.replace(/W/g, 'O'));
+
 // HUD icons.
 const hudMote = ['.nn.', 'nmmn', 'nmmn', '.nn.'];
 const hudPrismOff = ['..U..', '.UuU.', 'UuuuU', '.UuU.', '..U..'];
@@ -809,6 +822,16 @@ export const SPRITES = {
     hudShadeOn: hudShadeOn,
     hudShadeOff: hudShadeOff,
     arch: arch,
+    ice: ice,
+    fence: fence,
+    fenceDown: fenceDown,
+    pole: pole,
+    poleGlow: poleGlow,
+    icicle: icicle,
+    fox0: fox0,
+    fox1: fox1,
+    foxBrown0: foxBrown0,
+    foxBrown1: foxBrown1,
     belt: belt,
     lamp: lamp,
     stamp: stamp,
@@ -881,6 +904,10 @@ export const MIRRORED = [
     'greyling1',
     'fish0',
     'fish1',
+    'fox0',
+    'fox1',
+    'foxBrown0',
+    'foxBrown1',
     'greylingFree0',
     'greylingFree1',
     'flyBody',

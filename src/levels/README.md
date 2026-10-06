@@ -28,6 +28,8 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `talks` | no | Conversations: `[{ at: column, lines: [[speaker, text], ...] }]`, shown when Josepho first reaches `at`. |
 | `freeGreylings` | no | `true` (level 5 on): a stomp frees a greyling instead of squashing it - it gets its colors back and leaves a mote. In a dark level it flies along with Josepho and lights the way ahead (up to three; they stay after Josepho dies and fly home at the flag); otherwise it runs off home. A freed greyling never comes back grey. |
 | `freeTalk` | no | Lines `[[speaker, text], ...]` shown when the first greyling of the level is freed. |
+| `pulse` | if the map has pulse ledges | The aurora's rhythm: `{ period: frames, order: [colors] }` - each color's turn lasts `period` frames. |
+| `wind` | no | Gusts: `{ period, warn, gust, strength, zones: [[from, to], ...] }` (frames, pixels per frame, columns; a zone's optional third number is its own strength, negative blowing to the left). Snow blows sideways - the way the wind blows where Josepho is - for `warn` frames before each gust. |
 | `theme` | no | The level's look (below). |
 | `finale` | no | The banner when Josepho reaches the flag - what came back, in the level's own words. Default `SPEKTRUM JE ZPĚT`. |
 | `clearText` | no | Lines for the level-clear screen. |
@@ -39,7 +41,8 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `colors` | `{ DIRT: '#hex', GRASS: '#hex', ... }` - replaces shared colors by their names in `C` (`colors.js`). |
 | `sky` | Three rows of six hex colors (pre-dawn, sunrise, morning): the level's own sky. |
 | `tree` | `'palm'` draws palms for `T` instead of round trees; `'treeAutumn'` draws trees whose leaves use the level's first three stripes (they light up while those colors are on). |
-| `background` | `'sea'`: low islands and open water behind, instead of hills; `'archive'`: a dark back wall with shelves of grey boxes; `'office'`: a grey wall with windows and filing cabinets. |
+| `background` | `'sea'`: low islands and open water behind, instead of hills; `'archive'`: a dark back wall with shelves of grey boxes; `'office'`: a grey wall with windows and filing cabinets; `'tundra'`: a night sky with aurora curtains (in the stripe colors, grey until they come back), snowy hills and a herd of reindeer that runs once a fence is gone. |
+| `snow` | `true`: snow falls (and blows sideways before a gust of wind). |
 | `dark` | `true`: the level is dark except around the lights (Josepho, lit lanterns, freed greylings). Fireflies drift about for the mood (their glow does not light aura tiles). At the flag the light spreads until the dark is gone. |
 | `leaves` | `true`: leaves fall through the air, in the colors of the first three stripes. |
 | `tint` | `0`-`1`: how strongly the whole world takes on the color of the last arch Josepho passed (an arch that turns on two colors: the upper sky one, the lower sky the other, the land both mixed). `0.25` is a soft tint. |
@@ -79,6 +82,8 @@ gated tiles can be walked through). The built-in groups are `sky`, `earth`, `gre
 | | | | `k` | Skatulka: a box in the ground that rattles, pops up and snaps; it bites from the side, a stomp from above shuts it for good |
 | `>` `<` | slow sorting belt (carries right / left) | | `x` | stamp: hangs under the ceiling, shakes, drops on whoever steps under it |
 | `}` `{` | fast sorting belt | | `c` | clerk behind a counter (decoration) |
+| `I` | ice (solid, slippery) | | `i` | icicle: hangs under an overhang, quivers, drips, falls; grows back |
+| `E` | a fence of the Sorter's (solid until a greyling freed nearby takes it apart) | | `a` | arctic fox: white on ice, brown on the tundra; runs off |
 
 ### The level's own gated tiles
 
@@ -92,7 +97,8 @@ legend: {
 ```
 
 - `gate` - the color group (a stripe id or a built-in group).
-- `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'`, `'arch'`, `'flyer'`, `'aura'`, `'beam'` or `'lamp'`. Water whose color is on can be swum in; grey
+- `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'`, `'arch'`, `'flyer'`, `'aura'`, `'beam'`, `'lamp'`,
+  `'pulse'`, `'arc'` or `'pole'`. Water whose color is on can be swum in; grey
   water has no volume at all, so Josepho drops through it to whatever is below (build a floor under it). A
   `'timer'` is a leaf block (see below) and also needs `seconds`. An `'arch'` is not a tile but an arch to walk
   through (see below); it has no `gate`. A `'flyer'` is not a tile either but a flutterer (see below).
@@ -151,6 +157,35 @@ Rules the level 6 build taught:
   one color, the mixed ones and the first of the other are all lit at the meeting.
 - Keep lamps and stamps on screen: the player has to see where the light comes from and see a stamp shake. Hang
   them right under a ceiling low enough for `theme.cameraAbove` to show it with the floor.
+
+### The aurora's rhythm, compass stones and field lines
+
+A pulse ledge (`kind: 'pulse'`, `gate` = its color) has volume only in its color's turn of the level's `pulse`
+rhythm. Half a second before a turn passes a tone sounds, the ledges of the turn going out flicker and those of the
+next one flicker in. Put ledges of two colors right next to each other: standing across the border, the turn
+carries Josepho from one to the other.
+
+A compass stone (`kind: 'pole'`, `pair`, `side: 'N'` or `'S'`, `gate` = the color of its glow; `awake: true` to be lit
+from the start) wakes when Josepho touches it. When both poles of a pair are awake, the pair's field line - arc
+ledges (`kind: 'arc'`, `pair`) - gets its volume, and the stones' `turnsOn` colors come back. With `pulses: true`
+an arc ledge also has volume only in its gate color's turn of the rhythm. Draw the field line as a curve rising
+one row at a time, so it can be climbed with small hops.
+
+### Ice, wind, icicles and fences
+
+Ice (`I`) is slow to speed up on and slower to stop on. Wind (`wind` in the level) pushes Josepho in gusts inside its
+zones - twice as hard in the air; the snow warns of each gust. Never let a gust blow toward a pit without that
+warning. An icicle (`i`) hangs under an overhang and drops on whoever walks under it, after half a second of
+quivering and dripping. A fence (`E`, a column several tiles tall) is solid until a freed greyling runs into it
+(freed greylings run to the right) and breaks through - the whole fence, in a shower of planks. Put a greyling
+before every fence, on open ground.
+
+Rules the level 7 build taught:
+
+- Where Josepho has to stand across the border of two colors of the rhythm, that border must be on a flat stretch -
+  not on a step - and the stretch each turn has to be crossed in must be short enough to walk in one turn.
+- Wind never pushes Josepho off a ledge of the rhythm into the dark: over such ledges let it blow against them.
+- A ledge inside a pit gets the pit's back wall drawn behind it (automatically, when the tile below is `,`).
 
 ### Stamps and belts
 

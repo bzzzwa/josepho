@@ -56,6 +56,15 @@ export function checkLevel(def, world) {
         if (TILE_CHARS.has(ch) || ENTITY_CHARS.has(ch) || BUILTIN_LEGEND[ch]) {
             errors.push(`legend character '${ch}' is already used by the game`);
         }
+        if (entry.kind === 'pole') {
+            if (!entry.pair || !['N', 'S'].includes(entry.side)) {
+                errors.push(`legend '${ch}' (pole): needs a pair and side 'N' or 'S'`);
+            }
+            continue;
+        }
+        if (entry.kind === 'arc' && !entry.pair) {
+            errors.push(`legend '${ch}' (arc): needs the pair of its compass stones`);
+        }
         if (entry.kind === 'lamp') {
             if (!groups.has(entry.gate)) {
                 errors.push(`legend '${ch}' (lamp): unknown color group '${entry.gate}'`);
@@ -169,11 +178,13 @@ export function checkJumps(def) {
     // aura tiles count as there: Josepho's own light reaches whatever is near enough to jump to
     const aura = (ch) => legend[ch]?.kind === 'aura';
     const solid = (ch) =>
-        '#RB?GUP<>{}'.includes(ch) ||
+        '#RB?GUP<>{}I'.includes(ch) ||
         legend[ch]?.kind === 'solid' ||
         legend[ch]?.kind === 'timer' ||
         (aura(ch) && legend[ch].look === 'block');
-    const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway' || aura(ch) || legend[ch]?.kind === 'beam';
+    // (lamp light, the aurora's rhythm and field lines all count as there; so do fences - a freed greyling opens them)
+    const lightLedge = (ch) => ['beam', 'pulse', 'arc'].includes(legend[ch]?.kind);
+    const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway' || aura(ch) || lightLedge(ch);
     const free = (ch) => !solid(ch);
 
     // standable surfaces per column, joined into flat segments

@@ -25,6 +25,9 @@ export const PHYS = {
     flutterFall: 5, // slow sinking speed while fluttering
     stompBounce: 44,
     springPower: 70,
+    // on ice (level 7)
+    iceAccel: 0.5,
+    iceFriction: 0.25,
     // swimming (in water whose color is on)
     swimMax: 12, // slower than walking
     swimGravity: 1,
@@ -114,25 +117,29 @@ export class Player {
         }
         const max = this.inWater ? PHYS.swimMax : inp.run ? PHYS.runMax : PHYS.walkMax;
 
-        // horizontal
+        // horizontal (on ice: slow to speed up, slower still to stop)
+        const icy = this.onGround && level.iceAt(this.cx, this.bottom + 1);
+        const accel = icy ? PHYS.iceAccel : PHYS.accel;
+        const friction = icy ? PHYS.iceFriction : PHYS.friction;
+        const skid = icy ? PHYS.iceAccel : PHYS.skid;
         if (dir !== 0) {
             this.facing = dir;
             if (this.onGround && Math.sign(this.vx) === -dir && this.vx !== 0) {
-                this.vx += dir * PHYS.skid;
+                this.vx += dir * skid;
                 if (Math.abs(this.vx) > 6 && game.tick % 4 === 0) {
                     game.fx.dust(this.cx, this.bottom, -dir);
                 }
             } else if (Math.abs(this.vx) < max || Math.sign(this.vx) !== dir) {
-                this.vx += dir * PHYS.accel;
+                this.vx += dir * accel;
             } else if (this.onGround || this.inWater) {
                 // slow down gently when letting go of run
-                this.vx -= Math.sign(this.vx) * PHYS.friction;
+                this.vx -= Math.sign(this.vx) * friction;
             }
         } else if (this.onGround || this.inWater) {
-            if (Math.abs(this.vx) <= PHYS.friction) {
+            if (Math.abs(this.vx) <= friction) {
                 this.vx = 0;
             } else {
-                this.vx -= Math.sign(this.vx) * PHYS.friction;
+                this.vx -= Math.sign(this.vx) * friction;
             }
         }
 
@@ -1526,5 +1533,165 @@ export class Stamp {
         const rodTop = this.homeY - 8 - camY;
         gfx.rect(x + 7, rodTop, 2, y - rodTop, C.GREY_DK);
         gfx.draw('stamp', x, y);
+    }
+}
+
+// ---------------------------------------------------------------------------------------------- level 7 on
+
+/**
+ * A compass stone (legend kind 'pole'): one pole, `side` 'N' or 'S', of a `pair`. Alone it does nothing; when both
+ * poles of its pair are awake, the field line between them (arc tiles of that pair) gets its volume. A pole wakes
+ * when Josepho touches it; with `awake: true` it is lit from the start.
+ */
+export class Pole {
+    constructor(tx, ty, entry, stripeIndex) {
+        this.pair = entry.pair;
+        this.side = entry.side;
+        this.turnsOn = entry.turnsOn ?? [];
+        this.awake = !!entry.awake;
+        this.offset = (stripeIndex[entry.gate] ?? 0) * 2;
+        this.x = tx * TILE;
+        this.bottom = (ty + 1) * TILE;
+        this.t = 0;
+    }
+
+    touches(p) {
+        return p.px < this.x + 8 && p.px + p.w > this.x && p.py < this.bottom && p.bottom > this.bottom - 9;
+    }
+
+    render(gfx, camX, camY) {
+        this.t++;
+        const x = this.x - camX;
+        const y = this.bottom - 7 - camY;
+        gfx.draw('pole', x, y);
+        gfx.text(this.side, x + 3, y + 2, this.awake ? C.WHITE : C.GREY_DK, null);
+        if (this.awake && Math.floor(this.t / 12) % 3 !== 0) {
+            gfx.draw('poleGlow', x, y - 6, this.offset);
+        }
+    }
+}
+
+// how an icicle behaves
+const ICICLE = { reach: 9, warn: 30, gravity: 0.3, maxFall: 5, regrow: 240 };
+
+/**
+ * An icicle (`i`) under an overhang: when Josepho walks under it, it quivers and drips, then breaks off and falls;
+ * it shatters on the ground and grows back after a while. It hurts only while falling.
+ */
+export class Icicle {
+    alive = true;
+    active = true;
+    stompable = false;
+    w = 6;
+    h = 7;
+    state = 'hang'; // hang | warn | fall | gone
+    timer = 0;
+
+    constructor(tx, ty) {
+        this.x = tx * TILE + 1;
+        this.homeY = ty * TILE;
+        this.y = this.homeY;
+        this.vy = 0;
+    }
+
+    get px() {
+        return Math.round(this.x);
+    }
+
+    get py() {
+        return Math.round(this.y);
+    }
+
+    get harmless() {
+        return this.state !== 'fall';
+    }
+
+    overlaps(p) {
+        return p.px < this.px + this.w && p.px + p.w > this.px && p.py < this.py + this.h && p.py + p.h > this.py;
+    }
+
+    update(game) {
+        const p = game.player;
+        this.timer++;
+        switch (this.state) {
+            case 'hang':
+                if (Math.abs(p.cx - (this.x + 3)) < ICICLE.reach && p.py > this.y) {
+                    this.state = 'warn';
+                    this.timer = 0;
+                }
+                break;
+            case 'warn':
+                if (this.timer % 10 === 0) {
+                    game.fx.add({ kind: 'px', x: this.x + 3, y: this.y + this.h, vx: 0, vy: 1.5, life: 20, color: C.WHITE });
+                }
+                if (this.timer >= ICICLE.warn) {
+                    this.state = 'fall';
+                }
+                break;
+            case 'fall':
+                this.vy = Math.min(this.vy + ICICLE.gravity, ICICLE.maxFall);
+                for (let i = 0; i < Math.ceil(this.vy); i++) {
+                    if (game.level.collides(this.px + 1, this.py + this.h, this.w - 2, 1, true)) {
+                        this.state = 'gone';
+                        this.timer = 0;
+                        game.fx.burst(this.x + 3, this.y + this.h, 10, [C.WHITE, C.GREY_LT], 1.2);
+                        game.sound.play('bump', { pitch: 1.8 });
+                        break;
+                    }
+                    this.y += 1;
+                }
+                break;
+            case 'gone':
+                if (this.timer >= ICICLE.regrow) {
+                    this.state = 'hang';
+                    this.y = this.homeY;
+                    this.vy = 0;
+                    this.timer = 0;
+                }
+                break;
+        }
+    }
+
+    render(gfx, camX, camY) {
+        if (this.state === 'gone') {
+            return;
+        }
+        const shake = this.state === 'warn' ? (Math.floor(this.timer / 3) % 2 ? 1 : 0) : 0;
+        gfx.draw('icicle', this.px + shake - camX, this.py - camY);
+    }
+}
+
+/**
+ * The arctic fox (`a`): white in winter, brown in summer - so which box does it belong in? It sits; when Josepho
+ * comes close it runs off ahead and away. Its coat is white on ice and snow, brown on the tundra.
+ */
+export class Fox {
+    constructor(tx, ty, white) {
+        this.x = tx * TILE - 1;
+        this.bottom = (ty + 1) * TILE;
+        this.white = white;
+        this.vx = 0;
+        this.t = 0;
+        this.gone = false;
+    }
+
+    update(p) {
+        this.t++;
+        if (this.vx === 0 && Math.abs(p.cx - this.x) < 40) {
+            this.vx = 2.2;
+        }
+        this.x += this.vx;
+        if (this.vx && this.x - p.cx > 260) {
+            this.gone = true;
+        }
+    }
+
+    render(gfx, camX, camY) {
+        if (this.gone) {
+            return;
+        }
+        const run = this.vx ? Math.floor(this.t / 4) % 2 : 0;
+        const name = (this.white ? 'fox' : 'foxBrown') + (run ? '1' : '0') + '<';
+        gfx.draw(name, Math.round(this.x) - camX, this.bottom - 7 - camY);
     }
 }

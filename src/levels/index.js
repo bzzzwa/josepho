@@ -8,8 +8,9 @@ import { LEVEL3 } from './level3.js';
 import { LEVEL4 } from './level4.js';
 import { LEVEL5 } from './level5.js';
 import { LEVEL6 } from './level6.js';
+import { LEVEL7 } from './level7.js';
 
-export const LEVELS = [LEVEL1, LEVEL2, LEVEL3, LEVEL4, LEVEL5, LEVEL6];
+export const LEVELS = [LEVEL1, LEVEL2, LEVEL3, LEVEL4, LEVEL5, LEVEL6, LEVEL7];
 
 export function levelByNumber(number) {
     return LEVELS.find((level) => level.number === number) ?? null;
