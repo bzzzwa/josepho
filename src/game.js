@@ -94,7 +94,7 @@ const CAMERA_ABOVE = 50;
 const CAMERA_ABOVE_TALL = 64;
 
 // Keep in step with "version" in package.json and CHANGELOG.md.
-export const VERSION = '0.7.0';
+export const VERSION = '0.8.0';
 
 const STORY = [
     'KDYSI ZÁŘIL SVĚT LUMEN VŠEMI BARVAMI.',

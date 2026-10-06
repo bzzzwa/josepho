@@ -2,7 +2,9 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.8.0 - 2026-10-06
+
+Level 7 "Polarni zare" (Northern lights).
 
 ### Added
 
