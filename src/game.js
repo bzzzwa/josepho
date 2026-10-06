@@ -927,7 +927,6 @@ export class Game {
                     this.companions.push(new Companion(e.px, e.py, this.companions.length));
                 } else {
                     e.free();
-                    this.openFencesNear(e.px);
                 }
                 p.vy = -(inp.jump ? PHYS.stompBounce + 14 : PHYS.stompBounce);
                 p.jumping = inp.jump;
@@ -1266,13 +1265,25 @@ export class Game {
         for (const f of this.foxes) {
             f.update(this.player);
         }
+        // a freed greyling running into a fence breaks through it
+        for (const e of this.enemies) {
+            if (e.state === 'freed') {
+                const ahead = Math.floor((e.vx > 0 ? e.px + e.w + 2 : e.px - 2) / TILE);
+                const row = Math.floor((e.py + e.h - 2) / TILE);
+                if (this.level.tile(ahead, row) === 'E' && !this.level.openFences.has(ahead)) {
+                    this.breakFence(ahead, e);
+                }
+            }
+        }
         if (this.def.theme?.snow && this.tick % 6 === 0) {
+            // the snow blows the way the wind does where Josepho is
+            const dir = Math.sign(this.windHere(this.player)) || 1;
             const gust = this.gusting();
             this.fx.add({
                 kind: 'leaf',
-                x: this.camX + Math.random() * (SCREEN_W + 60) - (gust ? 60 : 0),
+                x: this.camX + Math.random() * (SCREEN_W + 60) - (gust ? (dir > 0 ? 60 : 0) : 0),
                 y: this.camY - 2,
-                vx: gust ? 2.6 : -0.1,
+                vx: gust ? 2.6 * dir : -0.1,
                 vy: 0.4 + Math.random() * 0.3,
                 life: 300,
                 phase: Math.random() * 6,
@@ -1308,6 +1319,17 @@ export class Game {
         return t >= w.warn && t < w.warn + w.gust;
     }
 
+    /**
+     * The wind of the zone Josepho is in: its strength (pixels per frame; + to the right, - to the left), or 0
+     * outside the zones. A zone is [from, to] (columns), with its own strength as a third number if it has one.
+     */
+    windHere(p) {
+        const w = this.def.wind;
+        const col = p.cx / TILE;
+        const zone = w?.zones.find(([a, b]) => col >= a && col <= b);
+        return zone ? (zone[2] ?? w.strength) : 0;
+    }
+
     /** A gust pushes Josepho along (more in the air), inside the wind's zones. */
     blowWind(p) {
         const w = this.def.wind;
@@ -1318,45 +1340,45 @@ export class Game {
         if (!this.gusting()) {
             return;
         }
-        const col = p.cx / TILE;
-        if (!w.zones.some(([a, b]) => col >= a && col <= b)) {
+        const strength = this.windHere(p);
+        if (!strength) {
             return;
         }
-        const push = w.strength * (p.onGround ? 0.5 : 1);
+        const push = strength * (p.onGround ? 0.5 : 1);
         if (!this.level.collides(p.px + Math.sign(push), p.py, p.w, p.h)) {
             p.x += push * SUB;
         }
     }
 
-    /** A greyling freed near a fence: it takes the fence apart (any fence within 12 tiles, all of it). */
-    openFencesNear(px) {
-        const c = Math.floor(px / TILE);
-        const isFence = (x) => this.level.def.map.some((row) => row[x] === 'E');
-        let opened = false;
-        const open = (x) => {
-            if (!this.level.openFences.has(x)) {
-                this.level.openFences.add(x);
-                opened = true;
-                this.fx.burst(x * TILE + 4, (this.level.h - 8) * TILE, 8, [C.WOOD, C.WOOD_DK], 1.2);
-            }
-        };
-        for (let x = c - 12; x <= c + 12; x++) {
-            if (isFence(x)) {
-                // the whole fence, every column of it
-                open(x);
-                for (let l = x - 1; isFence(l); l--) {
-                    open(l);
-                }
-                for (let r = x + 1; isFence(r); r++) {
-                    open(r);
+    /**
+     * A freed greyling runs into a fence and breaks through it: the whole fence (every column of it) comes apart in
+     * a shower of planks, with a crash and a shake.
+     */
+    breakFence(x, by) {
+        const isFence = (c) => this.level.def.map.some((row) => row[c] === 'E');
+        let a = x;
+        let b = x;
+        while (isFence(a - 1)) {
+            a--;
+        }
+        while (isFence(b + 1)) {
+            b++;
+        }
+        for (let c = a; c <= b; c++) {
+            this.level.openFences.add(c);
+            // planks from the whole height of the fence
+            for (let y = 0; y < this.level.h; y++) {
+                if (this.level.def.map[y][c] === 'E') {
+                    this.fx.burst(c * TILE + 4, y * TILE + 4, 5, [C.WOOD, C.WOOD_DK, C.INK], 2.2);
                 }
             }
         }
-        if (opened) {
-            this.fencesOpened++;
-            this.sound.play('break');
-            this.banner = { text: 'PLOT JE PRYČ', t: 0 };
-        }
+        this.fencesOpened++;
+        this.fx.kick(5);
+        this.fx.ring(by.px + 4, by.py + 3, 3, C.WHITE, 30);
+        this.sound.play('break');
+        this.sound.play('stomp', { pitch: 0.6 });
+        this.banner = { text: 'PLOT JE PRYČ', t: 0 };
     }
 
     /** A sorting belt carries Josepho along while they stand on it. */

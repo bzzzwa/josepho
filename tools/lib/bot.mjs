@@ -123,7 +123,10 @@ function fenceGreyling(game, p) {
     if (!fence) {
         return null;
     }
-    return game.enemies.find((e) => e.state === 'walk' && e.spawnKey && e.px > p.px - 4 && e.px - p.px < 60) ?? null;
+    // the nearest greyling on either side
+    const near = game.enemies.filter((e) => e.state === 'walk' && e.spawnKey && Math.abs(e.px - p.px) < 60);
+    near.sort((a, b) => Math.abs(a.px - p.px) - Math.abs(b.px - p.px));
+    return near[0] ?? null;
 }
 
 /** The nearest leaf block or tide switch behind Josepho (up to 20 tiles), bumpable from the ground below it. */
@@ -197,6 +200,7 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
     let furthest = 0;
     let lastSwitch = { frame: -999, key: '' };
     let waiting = false; // waiting on purpose (for a lamp or a stamp) is not being stuck
+    let hopping = false; // on or just off a bridge of light or rhythm: no speeding up in the air
     let strokeTimer = 0;
 
     for (let f = 0; f < maxFrames; f++) {
@@ -279,14 +283,17 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
                 // a fence ahead: let the greyling come, then hop onto it
                 keys.length = 0;
                 const d = toFree.px - p.px;
-                if (d > 6 && d < 22 && toFree.vx < 0) {
+                const coming = (d > 0 && toFree.vx < 0) || (d < 0 && toFree.vx > 0);
+                if (Math.abs(d) < 22 && (coming || Math.abs(d) <= 12)) {
+                    // it is coming (or already close): jump, and come down on it
                     hold = 6;
-                } else if (d >= 22) {
-                    waiting = true;
+                } else if (d > 0 && !coming) {
+                    keys.push(RIGHT);
                 } else {
-                    keys.push(LEFT);
+                    waiting = true;
                 }
             } else if (ride) {
+                hopping = true; // careful in the air too, until back on firm ground
                 // on (or at) a bridge of lamp light or of the aurora: walk with it, never jump into the dark - step
                 // on only while the ledge under Josepho's front has volume. At a ledge of the rhythm's next color,
                 // step a little onto it and wait: when the turn passes, it takes over from the one underfoot.
@@ -303,8 +310,37 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
                 const coming = game.lamps.some((l) => l.range && l.dir < 0 && Math.abs(l.x - x) < l.width);
                 const boarding = here?.kind !== 'beam' && e?.kind === 'beam';
                 const dark = LIGHT_KINDS.has(e?.kind) && !ledgeOnNow(level, e, front, under);
-                if (!dark && !(boarding && coming)) {
+                // stepping onto a stretch of the rhythm from firm ground: only with time enough to walk all of it
+                // (judged by the back foot: drifting a little onto the stretch is not yet being on it)
+                const back = level.legend[level.tile(Math.floor(p.px / 8), under)];
+                let late = false;
+                if (e && (e.kind === 'pulse' || e.pulses) && back?.kind !== e.kind && !nextTurn) {
+                    let end = front;
+                    while (level.legend[level.tile(end + 1, under)]?.gate === e.gate) {
+                        end++;
+                    }
+                    late = level.pulse.left < (end + 1) * 8 - p.px + 12;
+                }
+                // at the border of the next color's turn: start braking early enough to stop astride the border
+                let brake = false;
+                const ahead = Math.ceil((p.px + p.w - 2) / 8); // the first column still ahead of Josepho's body
+                for (let c = ahead; c <= ahead + 3; c++) {
+                    const t = level.legend[level.tile(c, under)];
+                    if (t && t.kind !== 'beam' && LIGHT_KINDS.has(t.kind) && !level.ledgeOn(t) && level.pulse.next === t.gate) {
+                        const v = Math.abs(p.vx) / 16;
+                        brake = c * 8 - (p.px + p.w) <= 8 * v * v - 2;
+                        break;
+                    }
+                }
+                if (!dark && !late && !brake && !(boarding && coming)) {
                     keys.push(RIGHT);
+                    // a field line climbing one row: a small hop up onto the next step (when it has volume)
+                    const stepCol = Math.floor((p.px + p.w + 3) / 8);
+                    const step = level.legend[level.tile(stepCol, under - 1)];
+                    if (step && LIGHT_KINDS.has(step.kind) && ledgeOnNow(level, step, stepCol, under - 1)) {
+                        hold = 3;
+                        hopping = true;
+                    }
                 }
                 waiting = keys.length === 0;
             } else if (sw && again && needed) {
@@ -390,6 +426,22 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
             }
         }
 
+        if (hopping) {
+            if (p.onGround && hold === 0 && !onBeamRoute(level, p)) {
+                hopping = false;
+            } else if (!p.onGround) {
+                const i = keys.indexOf(RUN);
+                if (i >= 0) {
+                    keys.splice(i, 1);
+                }
+                if (Math.abs(p.vx) >= 12) {
+                    const r = keys.indexOf(RIGHT);
+                    if (r >= 0) {
+                        keys.splice(r, 1);
+                    }
+                }
+            }
+        }
         const deadBefore = p.dead;
         step(game, keys);
         if (!deadBefore && game.player.dead) {

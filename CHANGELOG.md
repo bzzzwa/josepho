@@ -14,6 +14,15 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
   Ice, gusts of wind (the snow warns of them), icicles under an overhang, the arctic fox (white on ice, brown on
   the tundra), lichen, and the Sorter's fences on the tundra, which a freed greyling takes apart - and then the
   reindeer in the background run again. A night sky with aurora curtains. Three lanterns, three lost shades.
+- Ice spikes on the floors of the north's pits (the corner by the stairs out stays safe), a small overhang with
+  icicles, blocks and greylings on the coast.
+- A freed greyling runs to the next fence and breaks through it in a shower of planks, with a crash and a shake.
+- Wind zones can blow either way (`wind.zones` third number); over the pulsing field line it blows against
+  Josepho, never pushing them off a ledge into the dark.
+
+### Fixed
+
+- A ledge inside a pit has the pit's back wall drawn behind it, not a square of sky.
 
 ### Changed
 

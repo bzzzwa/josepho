@@ -29,7 +29,7 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `freeGreylings` | no | `true` (level 5 on): a stomp frees a greyling instead of squashing it - it gets its colors back and leaves a mote. In a dark level it flies along with Josepho and lights the way ahead (up to three; they stay after Josepho dies and fly home at the flag); otherwise it runs off home. A freed greyling never comes back grey. |
 | `freeTalk` | no | Lines `[[speaker, text], ...]` shown when the first greyling of the level is freed. |
 | `pulse` | if the map has pulse ledges | The aurora's rhythm: `{ period: frames, order: [colors] }` - each color's turn lasts `period` frames. |
-| `wind` | no | Gusts: `{ period, warn, gust, strength, zones: [[from, to], ...] }` (frames, pixels per frame, columns). Snow blows sideways for `warn` frames before each gust. |
+| `wind` | no | Gusts: `{ period, warn, gust, strength, zones: [[from, to], ...] }` (frames, pixels per frame, columns; a zone's optional third number is its own strength, negative blowing to the left). Snow blows sideways - the way the wind blows where Josepho is - for `warn` frames before each gust. |
 | `theme` | no | The level's look (below). |
 | `finale` | no | The banner when Josepho reaches the flag - what came back, in the level's own words. Default `SPEKTRUM JE ZPĚT`. |
 | `clearText` | no | Lines for the level-clear screen. |
@@ -176,8 +176,16 @@ one row at a time, so it can be climbed with small hops.
 Ice (`I`) is slow to speed up on and slower to stop on. Wind (`wind` in the level) pushes Josepho in gusts inside its
 zones - twice as hard in the air; the snow warns of each gust. Never let a gust blow toward a pit without that
 warning. An icicle (`i`) hangs under an overhang and drops on whoever walks under it, after half a second of
-quivering and dripping. A fence (`E`, a column several tiles tall) is solid until a greyling is freed within 12 tiles
-of it - then the whole fence comes apart. Put a greyling next to every fence, on open ground.
+quivering and dripping. A fence (`E`, a column several tiles tall) is solid until a freed greyling runs into it
+(freed greylings run to the right) and breaks through - the whole fence, in a shower of planks. Put a greyling
+before every fence, on open ground.
+
+Rules the level 7 build taught:
+
+- Where Josepho has to stand across the border of two colors of the rhythm, that border must be on a flat stretch -
+  not on a step - and the stretch each turn has to be crossed in must be short enough to walk in one turn.
+- Wind never pushes Josepho off a ledge of the rhythm into the dark: over such ledges let it blow against them.
+- A ledge inside a pit gets the pit's back wall drawn behind it (automatically, when the tile below is `,`).
 
 ### Stamps and belts
 

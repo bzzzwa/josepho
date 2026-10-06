@@ -477,6 +477,11 @@ export class Level {
 
     /** A color-gated tile: solid-looking when its color is on, a dotted ghost outline when it is off. */
     drawGated(gfx, entry, tx, x, y) {
+        // a ledge inside a pit: the pit's back wall behind it too, not the sky
+        if (this.tile(tx, Math.floor((y + 4) / TILE) + 1) === ',') {
+            gfx.rect(x, y, TILE, TILE, C.SHADE);
+            gfx.tint('backdrop', x, y, C.DIRT_DK);
+        }
         // about to run out: blink between the tile and its ghost
         const on = !!this.gates[entry.gate] && !(this.blinking.has(entry.gate) && Math.floor(this.tick / 5) % 2);
         if (entry.kind === 'pulse' || entry.kind === 'arc') {
