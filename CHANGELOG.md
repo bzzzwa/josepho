@@ -2,7 +2,9 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.8.1 - 2026-10-14
+
+BLIT386 1.7.1, without the camera workaround.
 
 ### Changed
 
