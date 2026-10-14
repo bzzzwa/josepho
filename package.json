@@ -19,7 +19,7 @@
     "lint:fix": "biome lint --write ."
   },
   "dependencies": {
-    "blit386": "^1.7.0"
+    "blit386": "^1.7.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",
