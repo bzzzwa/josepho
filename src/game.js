@@ -94,7 +94,7 @@ const CAMERA_ABOVE = 50;
 const CAMERA_ABOVE_TALL = 64;
 
 // Keep in step with "version" in package.json and CHANGELOG.md.
-export const VERSION = '0.8.0';
+export const VERSION = '0.8.1';
 
 const STORY = [
     'KDYSI ZÁŘIL SVĚT LUMEN VŠEMI BARVAMI.',
@@ -1854,10 +1854,6 @@ export class Game {
     // ------------------------------------------------------------------ render
 
     render() {
-        // BLIT386 starts every frame with the camera last passed to cameraSet() - cameraReset() does not clear
-        // that - so each frame begins from a clean camera. Without this the world map inherited the level's
-        // camera and was drawn shifted (or entirely off screen after finishing a level).
-        BT.cameraReset();
         switch (this.state) {
             case 'title':
                 this.renderWorld(false);
@@ -1907,7 +1903,6 @@ export class Game {
     }
 
     renderWorld(withActors) {
-        BT.cameraReset();
         BT.clear(C.SKY0);
         const shake = this.fx.shake > 0 ? Math.round((Math.random() - 0.5) * this.fx.shake * 2) : 0;
         const cx = Math.round(this.camX) + shake;

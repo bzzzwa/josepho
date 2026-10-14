@@ -121,9 +121,9 @@ export const input = { keys: new Set(), touches: new Map(), prevTouches: new Set
 
 export const stats = { draws: 0, sounds: 0, firstDrawCamera: null };
 
-// Like the real engine (1.7): every frame starts with the camera last given to cameraSet(), and
-// cameraReset() does NOT clear that remembered value. A screen that draws without resetting the camera
-// first therefore inherits the camera of an earlier screen.
+// Like the real engine (1.7.1): every frame starts with the camera the previous frame ended with - the last
+// cameraSet(), unless a cameraReset() came after it. (1.7.0 also kept the last cameraSet() after a reset; that
+// was fixed in 1.7.1.) A screen that leaves the camera set at the end of a frame passes it on to the next one.
 let camera = { x: 0, y: 0 };
 let lastSetCamera = { x: 0, y: 0 };
 let palette = null;
@@ -226,6 +226,7 @@ const BT_NOW = {
     },
     cameraReset: () => {
         camera = { x: 0, y: 0 };
+        lastSetCamera = { x: 0, y: 0 };
     },
     drawRectFill: (r, color) => {
         noteDraw();

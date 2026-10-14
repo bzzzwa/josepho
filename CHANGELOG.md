@@ -2,6 +2,17 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.8.1 - 2026-10-14
+
+BLIT386 1.7.1, without the camera workaround.
+
+### Changed
+
+- BLIT386 1.7.1. It fixes the camera bug of 1.7.0 (a `cameraReset()` did not clear the camera the next frame
+  started with), so the workaround is gone: `render()` no longer resets the camera at the start of every frame.
+  The test double now behaves like 1.7.1, and the smoke test still checks that the world map never inherits a
+  level's camera.
+
 ## 0.8.0 - 2026-10-06
 
 Level 7 "Polarni zare" (Northern lights).
