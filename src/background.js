@@ -70,7 +70,7 @@ export class Background {
         ];
     }
 
-    render(gfx, camX, dawn, tick) {
+    render(gfx, camX, dawn, tick, camY = 0) {
         // Sky bands with dithered seams.
         for (let i = 0; i < 6; i++) {
             const top = BAND_TOPS[i];
@@ -134,6 +134,10 @@ export class Background {
             this.renderTundra(gfx, camX, tick);
             return;
         }
+        if (this.style === 'tower') {
+            this.renderTower(gfx, camX, camY ?? 0);
+            return;
+        }
 
         // Mid hills.
         const mo = Math.floor(camX * MID_SPEED);
@@ -143,6 +147,32 @@ export class Background {
             gfx.line(sx2, top, sx2, SCREEN_H - 1, C.MID);
             if (this.mid[i + 1] > top) {
                 gfx.pixel(sx2, top, C.MID_HI);
+            }
+        }
+    }
+
+    /**
+     * Inside the Sorter's Tower: a pale grey wall with tall black-framed windows onto the night outside, and a
+     * black-and-white checkered frieze - all sliding slowly with the parallax, sideways and up.
+     */
+    renderTower(gfx, camX, camY) {
+        gfx.rect(0, 0, SCREEN_W, SCREEN_H, C.GREY_LT);
+        const ox = Math.floor(camX * 0.3);
+        const oy = Math.floor(camY * 0.3);
+        for (let wy = -(oy % 72) - 72; wy < SCREEN_H + 72; wy += 72) {
+            // the frieze
+            for (let fx = -(ox % 8) - 8; fx < SCREEN_W + 8; fx += 8) {
+                const k = Math.floor((fx + ox) / 8) % 2 === 0;
+                gfx.rect(fx, wy, 4, 4, k ? C.INK : C.WHITE);
+                gfx.rect(fx + 4, wy, 4, 4, k ? C.WHITE : C.INK);
+            }
+            // windows
+            for (let wx = -(ox % 56) - 56; wx < SCREEN_W + 56; wx += 56) {
+                gfx.rect(wx + 18, wy + 16, 20, 40, C.INK);
+                gfx.rect(wx + 20, wy + 18, 16, 36, C.SKY0);
+                gfx.rect(wx + 27, wy + 18, 2, 36, C.INK);
+                gfx.pixel(wx + 23, wy + 24, C.WHITE);
+                gfx.pixel(wx + 32, wy + 40, C.WHITE);
             }
         }
     }

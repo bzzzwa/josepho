@@ -29,8 +29,10 @@ import { bootstrap, BT, Color32, Vector2i } from 'blit386';
 import {
     Arch,
     Bell,
+    Box,
     Companion,
     Decor,
+    Discolorer,
     Driftwood,
     Firefly,
     Fish,
@@ -41,6 +43,7 @@ import {
     Icicle,
     Lamp,
     Lantern,
+    Mirror,
     Mote,
     Pole,
     Petal,
@@ -51,6 +54,7 @@ import {
     Shade,
     Sign,
     Skatulka,
+    Skatulkar,
     Stamp,
     Thornback,
 } from './actors.js';
@@ -231,6 +235,8 @@ export class Game {
         this.arches = [];
         this.lamps = []; // office lamps (level 6)
         this.poles = []; // compass stones (level 7)
+        this.mirror = null; // the mirror at the top of the Tower (level 8)
+        this.offDiscolorers = new Set(); // Discolorers a kicked box shut down ("x,y"): they stay off
         this.foxes = [];
         this.pulseT = 0; // the aurora's rhythm (level 7)
         this.windT = 0;
@@ -282,6 +288,9 @@ export class Game {
                 case 'F':
                     this.greatPrism = new GreatPrism(s.tx, s.ty);
                     break;
+                case 'Z':
+                    this.mirror = new Mirror(s.tx, s.ty);
+                    break;
                 case 'l':
                     this.lanterns.push(new Lantern(s.tx, s.ty));
                     break;
@@ -323,6 +332,8 @@ export class Game {
         this.startTile = start;
         this.checkpoint = start;
         this.player = new Player(start.tx * TILE + 1, (start.ty + 1) * TILE - 10);
+        // after the Tower: wings of light in the colors of Josepho's flag
+        this.player.flagWings = !!this.save.done?.[8];
         this.spawnEnemies();
         this.popMotes = [];
         this.petals = [];
@@ -365,6 +376,16 @@ export class Game {
                 this.enemies.push(new Stamp(s.tx, s.ty));
             } else if (s.ch === 'i') {
                 this.enemies.push(new Icicle(s.tx, s.ty));
+            } else if (this.def.legend?.[s.ch]?.kind === 'discolor') {
+                const d = new Discolorer(s.tx, s.ty, this.def.legend[s.ch]);
+                if (this.offDiscolorers.has(`${s.tx},${s.ty}`)) {
+                    d.state = 'off';
+                }
+                this.enemies.push(d);
+            } else if (s.ch === 'J') {
+                this.enemies.push(new Skatulkar(s.tx, s.ty));
+            } else if (s.ch === 'p') {
+                this.enemies.push(new Box(s.tx * TILE, (s.ty + 1) * TILE - 7));
             } else if (this.def.legend?.[s.ch]?.kind === 'flyer') {
                 this.enemies.push(new Flyer(s.tx, s.ty, this.def.legend[s.ch], this.level.stripeIndex));
             }
@@ -842,6 +863,7 @@ export class Game {
         }
         this.level.beams = this.lamps.map((l) => l.beam);
         this.updateNorth();
+        this.updatePaint();
         this.background.herdRun = this.fencesOpened;
         if (this.talk) {
             // a conversation holds the game still until it is read
@@ -897,6 +919,13 @@ export class Game {
         const p = this.player;
         for (const e of this.enemies) {
             e.update(this);
+            if (e.touch) {
+                // things that handle being touched themselves (boxes, Skatulkari) - harmless or not
+                if (e.active && !p.dead && e.overlaps(p)) {
+                    e.touch(this, p, p.vy > 0 && p.prevBottom <= e.py + 3);
+                }
+                continue;
+            }
             // fish and boxes tell whether they can hurt right now; walkers are dangerous while walking
             const dangerous = 'harmless' in e ? !e.harmless : e.state === 'walk';
             if (!e.active || !dangerous) {
@@ -1381,6 +1410,37 @@ export class Game {
         this.banner = { text: 'PLOT JE PRYČ', t: 0 };
     }
 
+    /**
+     * Level 8: Josepho gives color back to grey paint tiles close around them - unless a Discolorer's ray has
+     * just turned Josepho grey too. And a Discolorer a box shut down stays off.
+     */
+    updatePaint() {
+        const p = this.player;
+        if (p.greyT > 0) {
+            p.greyT--;
+        }
+        const level = this.level;
+        if (level.greyed.size && !(p.greyT > 0) && !p.dead) {
+            // (within 3 tiles of Josepho's feet: enough to color a stone across a gap before jumping to it)
+            const fx = p.cx;
+            const fy = p.bottom - 2;
+            for (let ty = Math.floor(fy / TILE) - 3; ty <= Math.floor(fy / TILE) + 3; ty++) {
+                for (let tx = Math.floor(fx / TILE) - 3; tx <= Math.floor(fx / TILE) + 3; tx++) {
+                    const key = `${tx},${ty}`;
+                    if (level.greyed.has(key) && Math.hypot(tx * TILE + 4 - fx, ty * TILE + 4 - fy) <= 24) {
+                        level.greyed.delete(key);
+                        this.fx.burst(tx * TILE + 4, ty * TILE + 3, 3, [C.SPEC0, C.SPEC0 + 2, C.SPEC0 + 4], 0.6);
+                    }
+                }
+            }
+        }
+        for (const e of this.enemies) {
+            if (e instanceof Discolorer && e.state === 'off') {
+                this.offDiscolorers.add(`${e.tx},${e.ty}`);
+            }
+        }
+    }
+
     /** A sorting belt carries Josepho along while they stand on it. */
     rideBelt(p) {
         if (!p.onGround || p.dead) {
@@ -1652,6 +1712,11 @@ export class Game {
     }
 
     startFinale() {
+        if (this.mirror) {
+            // the Tower: the reflection comes together, and Josepho's wings take the colors of their flag
+            this.mirror.whole = true;
+            this.player.flagWings = true;
+        }
         this.greatPrism.awake = true;
         this.player.happy = true;
         this.player.vx = 0;
@@ -1907,7 +1972,7 @@ export class Game {
         const shake = this.fx.shake > 0 ? Math.round((Math.random() - 0.5) * this.fx.shake * 2) : 0;
         const cx = Math.round(this.camX) + shake;
         const cy = Math.round(this.camY);
-        this.background.render(gfx, cx, this.chroma.dawn, this.tick);
+        this.background.render(gfx, cx, this.chroma.dawn, this.tick, cy);
 
         const bloom = this.level.gates.bloom;
         for (const d of this.decor) {
@@ -1945,6 +2010,7 @@ export class Game {
         for (const pole of this.poles) {
             pole.render(gfx, cx, cy);
         }
+        this.mirror?.render(gfx, cx, cy, this.player, this.tick);
         for (const f of this.foxes) {
             f.render(gfx, cx, cy);
         }

@@ -18,7 +18,7 @@ export const BELTS = { '<': -0.5, '>': 0.5, '{': -1, '}': 1 };
 export const TILE_CHARS = new Set(['.', ',', '#', 'R', 'B', '?', 'G', 'U', 'P', '=', '~', '^', '<', '>', '{', '}', 'I', 'E']);
 export const ENTITY_CHARS = new Set([
     '@', 'o', 'e', 't', 's', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F', 'l', 'b', 'f', 'T', 'd', 'r', 'z', 'k',
-    'x', 'c', 'i', 'a',
+    'x', 'c', 'i', 'a', 'J', 'p', 'Z',
 ]);
 
 // Color-gated tiles every level knows. A level adds its own in `legend` (see src/levels/README.md):
@@ -35,7 +35,11 @@ export const ENTITY_CHARS = new Set([
 //         right now - see `pulse` in the level), or
 //         'arc' (a ledge of a field line: volume only while both poles of its `pair` are awake; with `pulses`
 //         also only in its gate's turn of the rhythm), or
-//         'pole' (not a tile: a compass stone, `side` 'N' or 'S' of `pair` - see Pole in actors.js)
+//         'pole' (not a tile: a compass stone, `side` 'N' or 'S' of `pair` - see Pole in actors.js), or
+//         'paint' (a block or ledge in its gate's color that a Discolorer's ray turns grey - then it has no volume
+//         until Josepho comes near and gives the color back), or
+//         'discolor' (not a tile: a Discolorer, firing grey rays `dir` 1 (right) or -1 (left) every `rest` frames
+//         - see Discolorer in actors.js)
 //   gate  the color group that must be on for the tile to have volume (a timer: the group it turns on)
 //   look  which art to draw: leaf, cloud, block, ledge, water
 export const BUILTIN_LEGEND = {
@@ -59,7 +63,7 @@ export class Level {
         this.tiles = def.map.map((row) => [...row]);
         this.spawns = [];
         // a level's arches and flutterers (legend kind 'arch', 'flyer') are objects, not tiles
-        const objectKinds = new Set(['arch', 'flyer', 'lamp', 'pole']);
+        const objectKinds = new Set(['arch', 'flyer', 'lamp', 'pole', 'discolor']);
         const archChars = new Set(Object.entries(def.legend ?? {}).filter(([, e]) => objectKinds.has(e.kind)).map(([c]) => c));
         for (let y = 0; y < this.h; y++) {
             for (let x = 0; x < this.w; x++) {
@@ -100,6 +104,8 @@ export class Level {
         this.arcsOn = new Set();
         // fences taken apart (by column)
         this.openFences = new Set();
+        // paint tiles a Discolorer's ray turned grey ("x,y")
+        this.greyed = new Set();
         // tile bounce animations: key "x,y" -> frames left
         this.bumps = new Map();
         // tiles changed while playing ("x,y" -> new character), so a saved game can put them back
@@ -162,6 +168,9 @@ export class Level {
             return !this.openFences.has(tx);
         }
         const e = this.legend[ch];
+        if (e?.kind === 'paint' && e.look === 'block') {
+            return tx === undefined || !this.greyed.has(`${tx},${ty}`);
+        }
         return e?.kind === 'aura' && e.look === 'block' && this.litAt(tx, ty);
     }
 
@@ -192,6 +201,9 @@ export class Level {
         }
         if (e?.kind === 'pulse' || e?.kind === 'arc') {
             return tx === undefined || this.ledgeOn(e);
+        }
+        if (e?.kind === 'paint' && e.look !== 'block') {
+            return tx === undefined || !this.greyed.has(`${tx},${ty}`);
         }
         return e?.kind === 'aura' && e.look !== 'block' && this.litAt(tx, ty);
     }
@@ -484,6 +496,17 @@ export class Level {
         }
         // about to run out: blink between the tile and its ghost
         const on = !!this.gates[entry.gate] && !(this.blinking.has(entry.gate) && Math.floor(this.tick / 5) % 2);
+        if (entry.kind === 'paint') {
+            const ty = Math.floor((y + 4) / TILE);
+            const block = entry.look === 'block';
+            const k = this.stripeIndex[entry.gate] ?? 0;
+            if (this.greyed.has(`${tx},${ty}`)) {
+                gfx.draw(block ? 'sBlockGhost' : 'sLedgeGhost', x, y, k * STRIPE_SHADES);
+            } else {
+                gfx.draw(block ? 'hBlock' : 'hLedge', x, y, k * HINT_SHADES);
+            }
+            return;
+        }
         if (entry.kind === 'pulse' || entry.kind === 'arc') {
             // its turn: lit; its turn coming (the last half second): flickering in; otherwise a faint outline
             const k = (this.stripeIndex[entry.gate] ?? 0);

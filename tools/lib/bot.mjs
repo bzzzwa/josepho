@@ -100,6 +100,54 @@ function onBeamRoute(level, p) {
     return false;
 }
 
+/** Josepho is grey (a ray caught them) and the paint ahead is grey too: wait for the color to come back. */
+function greyAhead(level, p) {
+    if (!(p.greyT > 0)) {
+        return false;
+    }
+    const col = Math.floor(p.cx / 8);
+    const feetRow = Math.floor((p.bottom - 1) / 8);
+    for (let dx = 0; dx <= 3; dx++) {
+        for (let y = feetRow - 2; y <= feetRow + 1; y++) {
+            if (level.greyed.has(`${col + dx},${y}`)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/** Grey paint just ahead (and Josepho not grey): walk up to it first - it takes its color back - then jump. */
+function greyNear(level, p) {
+    if (p.greyT > 0) {
+        return false;
+    }
+    const col = Math.floor(p.cx / 8);
+    const feetRow = Math.floor((p.bottom - 1) / 8);
+    for (let dx = 1; dx <= 5; dx++) {
+        for (let y = feetRow - 3; y <= feetRow + 2; y++) {
+            if (level.greyed.has(`${col + dx},${y}`)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/** A Discolorer whose ray would catch Josepho is about to fire: time to jump over it. */
+function rayComing(game, p) {
+    return game.enemies.some(
+        (e) =>
+            e.rest !== undefined &&
+            e.state === 'charge' &&
+            e.timer >= 26 &&
+            p.bottom > e.y &&
+            p.py < e.y + 16 &&
+            Math.sign(p.cx - (e.x + 4)) === e.dir &&
+            Math.abs(p.cx - (e.x + 4)) < 22 * 8, // (a tile more than the ray reaches: stepping into it counts)
+    );
+}
+
 /** A stamp or an icicle just ahead that is shaking, falling or lying down. */
 function stampAhead(game, p) {
     return game.enemies.some(
@@ -272,13 +320,26 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
             const again = swKey !== lastSwitch.key || f - lastSwitch.frame > 90;
             const swSoon = p.onGround && !sw && [1, 2, 3].some((a) => switchOverhead(level, p, a, game.timers));
             const needed = sw && (blockedAhead(level, p) || (sw.gate && colorAhead(level, p, sw.gate)));
-            const wait = p.onGround && (beamNotYet(level, p) || stampAhead(game, p));
+            const dodge = p.onGround && rayComing(game, p);
+            const wait = p.onGround && !dodge && (beamNotYet(level, p) || stampAhead(game, p) || greyAhead(level, p));
             waiting = wait;
             const toFree = p.onGround && !wait ? fenceGreyling(game, p) : null;
             const ride = p.onGround && onBeamRoute(level, p);
-            if (wait) {
+            if (dodge) {
+                // a Discolorer is about to fire along this row: jump the ray (straight up, to stay on the ledge)
+                keys.length = 0;
+                hold = 14;
+            } else if (wait) {
                 // a lamp's light has not reached the ledge ahead yet, or a stamp ahead is coming down: wait
                 keys.length = 0;
+            } else if (p.onGround && greyNear(level, p)) {
+                // grey paint ahead: walk on (to the edge at most), and let it take its color back first
+                keys.length = 0;
+                const front = p.px + p.w + 2;
+                if (solidAt(front, p.bottom)) {
+                    keys.push(RIGHT);
+                }
+                waiting = true;
             } else if (toFree) {
                 // a fence ahead: let the greyling come, then hop onto it
                 keys.length = 0;

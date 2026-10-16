@@ -56,6 +56,12 @@ export function checkLevel(def, world) {
         if (TILE_CHARS.has(ch) || ENTITY_CHARS.has(ch) || BUILTIN_LEGEND[ch]) {
             errors.push(`legend character '${ch}' is already used by the game`);
         }
+        if (entry.kind === 'discolor') {
+            if (![1, -1].includes(entry.dir)) {
+                errors.push(`legend '${ch}' (discolor): dir must be 1 or -1`);
+            }
+            continue;
+        }
         if (entry.kind === 'pole') {
             if (!entry.pair || !['N', 'S'].includes(entry.side)) {
                 errors.push(`legend '${ch}' (pole): needs a pair and side 'N' or 'S'`);
@@ -184,7 +190,7 @@ export function checkJumps(def) {
         (aura(ch) && legend[ch].look === 'block');
     // (lamp light, the aurora's rhythm and field lines all count as there; so do fences - a freed greyling opens them)
     const lightLedge = (ch) => ['beam', 'pulse', 'arc'].includes(legend[ch]?.kind);
-    const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway' || aura(ch) || lightLedge(ch);
+    const standOn = (ch) => solid(ch) || ch === '=' || legend[ch]?.kind === 'oneway' || aura(ch) || lightLedge(ch) || legend[ch]?.kind === 'paint';
     const free = (ch) => !solid(ch);
 
     // standable surfaces per column, joined into flat segments

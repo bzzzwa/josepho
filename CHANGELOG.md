@@ -2,6 +2,27 @@
 
 All notable changes to Josepho are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- Level 8 "Vez protikladu" (The Tower of opposites), Josepho's own level, in the colors of the nonbinary flag:
+  the first level climbed upward - floor by floor, up and to the right; whoever falls in the shaft between floors
+  lands one floor down. Discolorers breathe in (their eye blinks) and fire grey rays: paint ledges in a ray lose
+  their color and their volume, and Josepho caught in one goes grey for a while and cannot give color back. Josepho
+  gives color back to whatever is within 3 tiles. Skatulkari walk about with boxes on their heads; a stomp knocks
+  the box off, and a kicked box slides, bounces and shuts a Discolorer down for good. The prism gives black and
+  white back to the flag - black ledges carry Josepho for the first time. At the top, the mirror shows Josepho split
+  in two, black and white; the Sorter stumbles over its own words ("JSI ZTRACENY. ZTRACENA. ZTRACENE..."), Josepho
+  answers "NIKAM SE NEZTRACIM. JSEM TADY.", and when the flag unfurls the reflection comes together.
+- Wings of light in the colors of Josepho's flag when fluttering, from the Tower on.
+- A background for the Tower: a pale wall, black-framed windows onto the night, a checkered frieze.
+
+### Changed
+
+- The level bot jumps a Discolorer's ray, waits while grey before grey paint, and walks up to grey paint to color
+  it before jumping.
+
 ## 0.8.1 - 2026-10-14
 
 BLIT386 1.7.1, without the camera workaround.

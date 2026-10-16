@@ -52,6 +52,7 @@ export class Player {
         this.vx = 0;
         this.vy = 0;
         this.facing = 1;
+        this.greyT = 0; // frames left grey after a Discolorer's ray (level 8)
         this.onGround = false;
         this.coyote = 0;
         this.buffer = 0;
@@ -334,6 +335,19 @@ export class Player {
         } else if (sortColor !== null && Math.floor(tick / 20) % 4 !== 0) {
             // sorted by an arch: a soft glow in that color, now and then fading out for a moment
             gfx.tint(`${name}~`, x - 1, y - 1, sortColor);
+        }
+        if (this.greyT > 0 && Math.floor(tick / 4) % 2 === 0) {
+            // hit by a Discolorer's ray: grey for a while - no color to give back
+            gfx.tint(`${name}~`, x - 1, y - 1, C.GREY);
+        }
+        if (this.flagWings && this.fluttering && this.flutterFuel > 0 && !this.onGround) {
+            // after the Tower: wings of light in the colors of Josepho's own flag
+            const flap = Math.floor(this.anim / 3) % 2;
+            const colors = [C.MOTE, C.WHITE, C.J_BODY, C.INK];
+            colors.forEach((c, i) => {
+                gfx.pixel(x - 2 - i, y + 3 + i - flap * i, c);
+                gfx.pixel(x + w + 1 + i, y + 3 + i - flap * i, c);
+            });
         }
         gfx.draw(name, x, y);
     }
@@ -1693,5 +1707,345 @@ export class Fox {
         const run = this.vx ? Math.floor(this.t / 4) % 2 : 0;
         const name = (this.white ? 'fox' : 'foxBrown') + (run ? '1' : '0') + '<';
         gfx.draw(name, Math.round(this.x) - camX, this.bottom - 7 - camY);
+    }
+}
+
+// ---------------------------------------------------------------------------------------------- level 8 on
+
+// how a Discolorer behaves
+const DISCOLOR = { rest: 150, charge: 40, fire: 14, range: 20, grey: 150 };
+
+/**
+ * A Discolorer (legend kind 'discolor', `dir` 1 or -1, `rest` frames between shots): a device of the Sorter's.
+ * Every so often it breathes in (blinking) and fires a grey ray its way along its row, two tiles tall (its row and
+ * the one below), as far as the first solid tile. Paint tiles in the ray go grey and lose their volume; Josepho
+ * caught in it goes grey for a while (and cannot give color back). A kicked box shuts it down for good.
+ */
+export class Discolorer {
+    alive = true;
+    active = true;
+    stompable = false;
+    harmless = true;
+    w = 8;
+    h = 8;
+
+    constructor(tx, ty, entry) {
+        this.tx = tx;
+        this.ty = ty;
+        this.x = tx * TILE;
+        this.y = ty * TILE;
+        this.dir = entry.dir ?? -1;
+        this.rest = entry.rest ?? DISCOLOR.rest;
+        this.state = 'rest'; // rest | charge | fire | off
+        this.timer = entry.phase ?? 0;
+        this.reach = tx;
+    }
+
+    get px() {
+        return this.x;
+    }
+
+    get py() {
+        return this.y;
+    }
+
+    overlaps(p) {
+        return p.px < this.x + 8 && p.px + p.w > this.x && p.py < this.y + 8 && p.bottom > this.y;
+    }
+
+    /** The rows its ray covers: its own and the one below. */
+    inRay(px0, px1, py0, py1) {
+        const x0 = Math.min(this.x, this.reach * TILE);
+        const x1 = Math.max(this.x + 8, (this.reach + 1) * TILE);
+        return px1 > x0 && px0 < x1 && py1 > this.y && py0 < this.y + 2 * TILE;
+    }
+
+    update(game) {
+        if (this.state === 'off') {
+            return;
+        }
+        this.timer++;
+        if (this.state === 'rest' && this.timer >= this.rest) {
+            this.state = 'charge';
+            this.timer = 0;
+        } else if (this.state === 'charge' && this.timer >= DISCOLOR.charge) {
+            this.state = 'fire';
+            this.timer = 0;
+            this.shoot(game);
+        } else if (this.state === 'fire' && this.timer >= DISCOLOR.fire) {
+            this.state = 'rest';
+            this.timer = 0;
+        }
+    }
+
+    /** The ray: paint tiles in its two rows go grey; so does Josepho, if it catches them. */
+    shoot(game) {
+        const level = game.level;
+        let x = this.tx + this.dir;
+        for (let i = 0; i < DISCOLOR.range; i++, x += this.dir) {
+            const blocked = [this.ty, this.ty + 1].every((y) => {
+                const ch = level.tile(x, y);
+                return level.isSolidTile(ch) && level.legend[ch]?.kind !== 'paint';
+            });
+            if (blocked) {
+                break;
+            }
+            for (const y of [this.ty, this.ty + 1]) {
+                if (level.legend[level.tile(x, y)]?.kind === 'paint') {
+                    level.greyed.add(`${x},${y}`);
+                }
+            }
+            this.reach = x;
+        }
+        game.sound.play('bump', { pitch: 0.4 });
+        const p = game.player;
+        if (!p.dead && this.inRay(p.px, p.px + p.w, p.py, p.bottom)) {
+            p.greyT = DISCOLOR.grey;
+            game.fx.burst(p.cx, p.py + 4, 10, [C.GREY, C.GREY_LT, C.GREY_DK], 1);
+        }
+    }
+
+    switchOff(game) {
+        this.state = 'off';
+        game.fx.burst(this.x + 4, this.y + 4, 14, [C.GREY_LT, C.WHITE, C.INK], 1.8);
+        game.fx.kick(3);
+        game.sound.play('break');
+    }
+
+    render(gfx, camX, camY) {
+        const x = this.x - camX;
+        const y = this.y - camY;
+        // the ray
+        if (this.state === 'fire') {
+            const x0 = Math.min(this.x + (this.dir > 0 ? 8 : 0), this.reach * TILE + (this.dir > 0 ? 8 : 0));
+            const x1 = Math.max(this.x + (this.dir > 0 ? 8 : 0), this.reach * TILE + (this.dir > 0 ? 8 : 0));
+            for (let r = 0; r < 2 * TILE; r++) {
+                gfx.ditherRow(r % 3 ? 'dither50' : 'dither25', x0 - camX, y + r, x1 - x0, C.GREY_LT, r);
+            }
+        }
+        gfx.rect(x, y, 8, 8, C.INK);
+        gfx.rect(x + 1, y + 1, 6, 6, this.state === 'off' ? C.GREY_DK : C.GREY);
+        // its eye: blinks while it breathes in
+        const charging = this.state === 'charge' && Math.floor(this.timer / 4) % 2 === 0;
+        const eye = this.state === 'off' ? C.INK : charging || this.state === 'fire' ? C.WHITE : C.GREY_DK;
+        gfx.rect(x + (this.dir > 0 ? 5 : 1), y + 3, 2, 2, eye);
+        if (this.state === 'charge' && this.timer > DISCOLOR.charge - 12) {
+            gfx.pixel(x + (this.dir > 0 ? 9 : -2), y + 4 + (this.timer % 2), C.WHITE);
+        }
+    }
+}
+
+/**
+ * A box (`p`): left behind by a stomped Skatulkar, or lying about. Touch it from the side and it is kicked: it slides,
+ * bounces off walls, sweeps creatures away and shuts down a Discolorer it hits. Stomp a sliding box to stop it.
+ * It never hurts Josepho.
+ */
+export class Box {
+    alive = true;
+    active = true;
+    stompable = true;
+    harmless = true;
+    w = 8;
+    h = 7;
+    state = 'still'; // still | slide
+
+    constructor(px, py) {
+        this.x = px * SUB;
+        this.y = py * SUB;
+        this.vx = 0;
+        this.vy = 0;
+        this.kickT = 0;
+    }
+
+    get px() {
+        return Math.floor(this.x / SUB);
+    }
+
+    get py() {
+        return Math.floor(this.y / SUB);
+    }
+
+    overlaps(p) {
+        return p.px < this.px + this.w && p.px + p.w > this.px && p.py < this.py + this.h && p.bottom > this.py;
+    }
+
+    /** Josepho touches it: from above a sliding box stops; from the side (or on top of a still one) it is kicked. */
+    touch(game, p, fromAbove) {
+        if (this.kickT > 0) {
+            return;
+        }
+        if (fromAbove && this.state === 'slide') {
+            this.state = 'still';
+            this.vx = 0;
+            p.vy = -40;
+        } else if (this.state === 'still') {
+            this.state = 'slide';
+            this.vx = (p.cx < this.px + 4 ? 1 : -1) * 48;
+            game.sound.play('stomp', { pitch: 1.4 });
+            if (fromAbove) {
+                p.vy = -40;
+            }
+        }
+        this.kickT = 12;
+    }
+
+    update(game) {
+        if (this.kickT > 0) {
+            this.kickT--;
+        }
+        this.vy = Math.min(this.vy + 5, 48);
+        const res = moveBody(game.level, this);
+        if (res.landed) {
+            this.vy = 0;
+        }
+        if (this.state !== 'slide') {
+            return;
+        }
+        if (res.hitX) {
+            this.vx = -this.vx;
+            game.sound.play('bump', { pitch: 1.2 });
+        }
+        for (const e of game.enemies) {
+            if (e === this || !e.alive) {
+                continue;
+            }
+            const hit = e.px < this.px + this.w + 1 && e.px + (e.w ?? 8) > this.px - 1 && e.py < this.py + this.h && e.py + (e.h ?? 8) > this.py;
+            if (!hit) {
+                continue;
+            }
+            if (e instanceof Discolorer && e.state !== 'off') {
+                e.switchOff(game);
+                this.vx = -this.vx;
+            } else if (e.state === 'walk' && e !== this) {
+                // swept away
+                if (typeof e.free === 'function' && game.def.freeGreylings) {
+                    e.free();
+                } else {
+                    e.state = 'squash';
+                    e.timer = 0;
+                }
+            }
+        }
+        if (this.py > game.level.ph + 16) {
+            this.alive = false;
+        }
+    }
+
+    render(gfx, camX, camY) {
+        const x = this.px - camX;
+        const y = this.py - camY;
+        gfx.rect(x, y, 8, 7, C.INK);
+        gfx.rect(x + 1, y + 1, 6, 5, C.WOOD);
+        gfx.rect(x + 1, y + 3, 6, 1, C.WOOD_DK);
+    }
+}
+
+/**
+ * A Skatulkar (`J`): one of the Sorter's clerks, walking about with a box on its head. A stomp knocks the box off -
+ * the box stays (to kick) and the clerk runs off, harmless. From the side it hurts.
+ */
+export class Skatulkar extends Walker {
+    constructor(tx, ty) {
+        super(tx, ty, 8, 14, 5);
+    }
+
+    get harmless() {
+        return this.state !== 'walk';
+    }
+
+    touch(game, p, fromAbove) {
+        if (this.state !== 'walk') {
+            return;
+        }
+        if (fromAbove) {
+            this.state = 'flee';
+            this.vx = (this.px > p.px ? 1 : -1) * 30;
+            p.vy = -PHYS.stompBounce;
+            game.enemies.push(new Box(this.px, this.py));
+            game.sound.play('stomp');
+        } else if (!p.invuln) {
+            p.hurt(game);
+        }
+    }
+
+    update(game) {
+        if (this.state === 'flee') {
+            this.anim++;
+            this.vy = Math.min(this.vy + 5, 48);
+            const res = moveBody(game.level, this);
+            if (res.landed) {
+                this.vy = 0;
+            }
+            if (res.hitX) {
+                this.vy = -50;
+            }
+            if (this.px < game.camX - 60 || this.px > game.camX + 260) {
+                this.alive = false;
+            }
+            return;
+        }
+        super.update(game);
+    }
+
+    render(gfx, camX, camY) {
+        const x = this.px - camX;
+        const y = this.py - camY;
+        const step = Math.floor(this.anim / 8) % 2;
+        const top = this.state === 'flee' ? y + 7 : y;
+        if (this.state !== 'flee') {
+            // the box on its head
+            gfx.rect(x, y, 8, 7, C.INK);
+            gfx.rect(x + 1, y + 1, 6, 5, C.WOOD);
+            gfx.rect(x + 1, y + 3, 6, 1, C.WOOD_DK);
+        }
+        // a grey clerk: head, body, legs
+        gfx.rect(x + 1, top + 7, 6, 4, C.GREY);
+        gfx.rect(x + 2, top + 8, 1, 1, C.INK);
+        gfx.rect(x + 5, top + 8, 1, 1, C.INK);
+        gfx.rect(x + 1 + step, y + 11, 2, 3, C.GREY_DK);
+        gfx.rect(x + 5 - step, y + 11, 2, 3, C.GREY_DK);
+    }
+}
+
+/**
+ * The mirror at the top of the Tower (`Z`): 16 x 24. It shows Josepho split in two - a black half and a white half,
+ * the way the Sorter sees them - until the flag unfurls: then the halves come together, in color.
+ */
+export class Mirror {
+    constructor(tx, ty) {
+        this.x = tx * TILE - 4;
+        this.bottom = (ty + 1) * TILE;
+        this.whole = false;
+    }
+
+    render(gfx, camX, camY, player, tick) {
+        const x = this.x - camX;
+        const y = this.bottom - 24 - camY;
+        gfx.rect(x - 1, y - 1, 18, 26, C.INK);
+        gfx.rect(x, y, 16, 24, C.GREY_LT);
+        gfx.ditherRow('dither25', x, y + 2, 16, C.WHITE, 0);
+        // the reflection: near enough, Josepho's own shape, facing back
+        const near = Math.abs(player.cx - (this.x + 8)) < 40;
+        if (!near && !this.whole) {
+            return;
+        }
+        const name = this.whole ? 'j.idle0' : 'j.idle0<';
+        const rx = x + 3;
+        const ry = y + 24 - 12;
+        if (this.whole) {
+            gfx.draw(name, rx, ry);
+            if (Math.floor(tick / 10) % 2) {
+                gfx.tint(`${name}~`, rx - 1, ry - 1, C.MOTE);
+            }
+        } else {
+            // two halves of the silhouette: black on the left, white on the right, a crack between
+            const mask = `${name}~`;
+            const mw = gfx.width(mask);
+            const mh = gfx.height(mask);
+            const half = Math.floor(mw / 2);
+            gfx.drawPart(mask, 0, 0, half, mh, rx - 1, ry - 1, C.INK - 1);
+            gfx.drawPart(mask, half, 0, mw - half, mh, rx - 1 + half, ry - 1, C.WHITE - 1);
+            gfx.rect(rx - 1 + half, ry - 1, 1, mh, C.GREY_DK);
+        }
     }
 }

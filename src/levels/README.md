@@ -83,6 +83,9 @@ gated tiles can be walked through). The built-in groups are `sky`, `earth`, `gre
 | `>` `<` | slow sorting belt (carries right / left) | | `x` | stamp: hangs under the ceiling, shakes, drops on whoever steps under it |
 | `}` `{` | fast sorting belt | | `c` | clerk behind a counter (decoration) |
 | `I` | ice (solid, slippery) | | `i` | icicle: hangs under an overhang, quivers, drips, falls; grows back |
+| | | | `J` | Skatulkar: a clerk with a box on its head; a stomp knocks the box off (the clerk runs away) |
+| | | | `p` | box: touch it from the side to kick it; it slides, bounces off walls, sweeps creatures away and shuts down a Discolorer |
+| | | | `Z` | the mirror at the top of the Tower |
 | `E` | a fence of the Sorter's (solid until a greyling freed nearby takes it apart) | | `a` | arctic fox: white on ice, brown on the tundra; runs off |
 
 ### The level's own gated tiles
@@ -98,7 +101,7 @@ legend: {
 
 - `gate` - the color group (a stripe id or a built-in group).
 - `kind` - `'solid'` (default), `'oneway'`, `'water'`, `'timer'`, `'arch'`, `'flyer'`, `'aura'`, `'beam'`, `'lamp'`,
-  `'pulse'`, `'arc'` or `'pole'`. Water whose color is on can be swum in; grey
+  `'pulse'`, `'arc'`, `'pole'`, `'paint'` or `'discolor'`. Water whose color is on can be swum in; grey
   water has no volume at all, so Josepho drops through it to whatever is below (build a floor under it). A
   `'timer'` is a leaf block (see below) and also needs `seconds`. An `'arch'` is not a tile but an arch to walk
   through (see below); it has no `gate`. A `'flyer'` is not a tile either but a flutterer (see below).
@@ -186,6 +189,22 @@ Rules the level 7 build taught:
   not on a step - and the stretch each turn has to be crossed in must be short enough to walk in one turn.
 - Wind never pushes Josepho off a ledge of the rhythm into the dark: over such ledges let it blow against them.
 - A ledge inside a pit gets the pit's back wall drawn behind it (automatically, when the tile below is `,`).
+
+### Discolorers and paint (level 8)
+
+A paint tile (`kind: 'paint'`, `look: 'block'` or `'ledge'`, `gate` = its color) is solid in its color - until a
+Discolorer's ray turns it grey: then it has no volume, until Josepho comes within 3 tiles and gives the color back.
+A Discolorer (`kind: 'discolor'`, `dir` 1 to fire right or -1 left, `rest` frames between shots, `phase` frames into
+the rest at the start) breathes in for two thirds of a second - its eye blinks - and fires a grey ray two tiles tall
+(its own row and the one below), as far as the first solid tile. Josepho caught in it goes grey for two and a half
+seconds and cannot give color back - and the paint under them is grey too. Jump the ray. A box kicked into a
+Discolorer shuts it down for good (also after Josepho dies).
+
+Rules the level 8 build taught:
+
+- Put pits in the Tower with stairs out on both sides: whoever falls in may land at either end.
+- Leave two rows clear under anything hanging over a walkway (a Discolorer's pillar): Josepho is that tall.
+- Never put a walking creature where Josepho lands after a ray bridge - landing and dodging at once is too much.
 
 ### Stamps and belts
 
