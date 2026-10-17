@@ -236,6 +236,8 @@ export class Game {
         this.lamps = []; // office lamps (level 6)
         this.poles = []; // compass stones (level 7)
         this.mirror = null; // the mirror at the top of the Tower (level 8)
+        this.fizzles = []; // grey paint that could not take color from a grey Josepho: small crosses, fading
+        this.hinted = new Set(); // one-time hints shown in this level
         this.offDiscolorers = new Set(); // Discolorers a kicked box shut down ("x,y"): they stay off
         this.foxes = [];
         this.pulseT = 0; // the aurora's rhythm (level 7)
@@ -1416,10 +1418,40 @@ export class Game {
      */
     updatePaint() {
         const p = this.player;
+        const level = this.level;
         if (p.greyT > 0) {
             p.greyT--;
+            // the color drips off Josepho
+            if (this.tick % 8 === 0) {
+                this.fx.add({ kind: 'px', x: p.px + 1 + (this.tick % 5), y: p.bottom - 3, vx: 0, vy: 0.6, life: 18, color: C.GREY });
+            }
+            if (p.greyT === 0) {
+                // the color comes back
+                this.fx.burst(p.cx, p.py + 4, 18, [C.SPEC0, C.SPEC0 + 1, C.SPEC0 + 2, C.SPEC0 + 3, C.SPEC0 + 4, C.SPEC0 + 5], 1.4);
+                this.sound.arpeggio([67, 71, 74, 79], 4, 'bell', 0.7);
+            }
+            // grey paint close by cannot take color from a grey Josepho: it fizzles
+            if (this.tick % 10 === 0) {
+                let fizzled = false;
+                for (const key of level.greyed) {
+                    const [tx, ty] = key.split(',').map(Number);
+                    if (Math.hypot(tx * TILE + 4 - p.cx, ty * TILE + 4 - (p.bottom - 2)) <= 24) {
+                        this.fx.add({ kind: 'px', x: tx * TILE + 2, y: ty * TILE + 2, vx: -0.3, vy: -0.5, life: 16, color: C.GREY_LT });
+                        this.fx.add({ kind: 'px', x: tx * TILE + 6, y: ty * TILE + 2, vx: 0.3, vy: -0.5, life: 16, color: C.GREY_LT });
+                        this.fizzles.push({ x: tx * TILE + 4, y: ty * TILE + 3, t: 12 });
+                        fizzled = true;
+                    }
+                }
+                if (fizzled) {
+                    this.sound.play('bump', { pitch: 2, volume: 0.4 });
+                    // (not over the first hint about the ray: one thing at a time)
+                    if (!this.hinted.has('nocolor') && !this.banner) {
+                        this.hinted.add('nocolor');
+                        this.banner = { text: 'BEZ BARVY ŘÍMSU NEOBARVÍŠ', t: 0 };
+                    }
+                }
+            }
         }
-        const level = this.level;
         if (level.greyed.size && !(p.greyT > 0) && !p.dead) {
             // (within 3 tiles of Josepho's feet: enough to color a stone across a gap before jumping to it)
             const fx = p.cx;
@@ -1439,6 +1471,50 @@ export class Game {
                 this.offDiscolorers.add(`${e.tx},${e.ty}`);
             }
         }
+    }
+
+    /** A Discolorer's ray caught Josepho: their color is gone for a while (the first time, the game says so). */
+    loseColor() {
+        const p = this.player;
+        p.greyT = 150;
+        this.fx.burst(p.cx, p.py + 4, 12, [C.GREY, C.GREY_LT, C.GREY_DK], 1.2);
+        this.sound.play('bump', { pitch: 0.5 });
+        if (!this.hinted.has('ray')) {
+            this.hinted.add('ray');
+            this.banner = { text: 'PAPRSEK TI VZAL BARVU', t: 0 };
+        }
+    }
+
+    /**
+     * Josepho without color: a grey drop over their head with the time left as a shrinking bar, and the crosses of
+     * grey paint that fizzled.
+     */
+    renderNoColor(cx, cy) {
+        const p = this.player;
+        for (const f of this.fizzles) {
+            const x = f.x - cx;
+            const y = f.y - cy;
+            gfx.pixel(x - 1, y - 1, C.GREY_LT);
+            gfx.pixel(x + 1, y + 1, C.GREY_LT);
+            gfx.pixel(x + 1, y - 1, C.GREY_LT);
+            gfx.pixel(x - 1, y + 1, C.GREY_LT);
+            gfx.pixel(x, y, C.WHITE);
+        }
+        if (!(p.greyT > 0) || p.dead) {
+            return;
+        }
+        const x = Math.round(p.cx) - cx;
+        const y = p.py - cy - 9;
+        // the drop
+        gfx.pixel(x, y, C.GREY_LT);
+        gfx.rect(x - 1, y + 1, 3, 2, C.GREY);
+        gfx.rect(x - 2, y + 3, 5, 2, C.GREY);
+        gfx.rect(x - 1, y + 5, 3, 1, C.GREY_DK);
+        gfx.pixel(x - 1, y + 2, C.WHITE);
+        // the time left
+        const w = Math.ceil((p.greyT / 150) * 10);
+        gfx.rect(x - 5, y + 7, 10, 1, C.INK);
+        gfx.rect(x - 5, y + 7, w, 1, C.GREY_LT);
     }
 
     /** A sorting belt carries Josepho along while they stand on it. */
@@ -1500,7 +1576,8 @@ export class Game {
     /** A conversation starts when Josepho first reaches its column. */
     startTalks(p) {
         for (const t of this.talks) {
-            if (!t.done && p.cx >= t.at * TILE) {
+            // (with `row`, only up there: in a tall level a column is not enough)
+            if (!t.done && p.cx >= t.at * TILE && (t.row === undefined || p.bottom <= (t.row + 1) * TILE)) {
                 t.done = true;
                 this.talk = { lines: t.lines, line: 0, typed: 0 };
                 p.vx = 0;
@@ -2061,6 +2138,8 @@ export class Game {
             for (const f of this.fireflies) {
                 f.render(gfx, cx, cy);
             }
+            this.renderNoColor(cx, cy);
+            this.fizzles = this.fizzles.filter((f) => --f.t > 0);
         }
 
         BT.cameraSet(new Vector2i(cx, cy));

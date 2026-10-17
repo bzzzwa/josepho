@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { LEVELS } from '../src/levels/index.js';
 import { WORLD } from '../src/levels/worldmap.js';
 import { runBot } from './lib/bot.mjs';
-import { checkJumps, checkLevel } from './lib/checks.mjs';
+import { checkClimb, checkJumps, checkLevel } from './lib/checks.mjs';
 import { BT, createGame, fakeStorage, screenRgb, screenshot, seedRandom, stats, step, steps } from './lib/harness.mjs';
 import { writePng } from './lib/png.mjs';
 
@@ -155,6 +155,14 @@ for (const def of LEVELS) {
     if (errors.length) {
         failed = true;
         continue;
+    }
+    // a level that goes up: the flag must be reachable from the start
+    const climb = checkClimb(def);
+    for (const e of climb) {
+        console.log(red(`  climb:   ${e}`));
+    }
+    if (climb.length) {
+        failed = true;
     }
     const jumps = checkJumps(def);
     for (const w of jumps.warnings) {

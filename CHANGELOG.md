@@ -7,21 +7,34 @@ All notable changes to Josepho are listed here. Versions follow [Semantic Versio
 ### Added
 
 - Level 8 "Vez protikladu" (The Tower of opposites), Josepho's own level, in the colors of the nonbinary flag:
-  the first level climbed upward - floor by floor, up and to the right; whoever falls in the shaft between floors
-  lands one floor down. Discolorers breathe in (their eye blinks) and fire grey rays: paint ledges in a ray lose
-  their color and their volume, and Josepho caught in one goes grey for a while and cannot give color back. Josepho
-  gives color back to whatever is within 3 tiles. Skatulkari walk about with boxes on their heads; a stomp knocks
-  the box off, and a kicked box slides, bounces and shuts a Discolorer down for good. The prism gives black and
-  white back to the flag - black ledges carry Josepho for the first time. At the top, the mirror shows Josepho split
-  in two, black and white; the Sorter stumbles over its own words ("JSI ZTRACENY. ZTRACENA. ZTRACENE..."), Josepho
-  answers "NIKAM SE NEZTRACIM. JSEM TADY.", and when the flag unfurls the reflection comes together.
+  the first truly vertical level - one screen wide and eight floors high, climbed in a zigzag: each floor has a hole
+  on one side, left and right in turns, with ledges in it up to the next floor; whoever falls through lands one
+  floor down. Discolorers fire grey rays sideways, or up a shaft. Before each shot one breathes in for a second,
+  louder and louder: its eye glows and it ticks; grey motes are drawn in, the ticking quickens and a dotted line
+  shows the ray's way; then the eye flashes in a frame and the tone rises - and the ray comes, with a crash. Paint
+  ledges in a ray lose their color and their volume. Josepho caught in one loses their color for a while: a grey drop
+  over their head shows the time left, grey drips fall from them, grey paint near them fizzles with small crosses -
+  and the first time, the game says why ("PAPRSEK TI VZAL BARVU", "BEZ BARVY RIMSU NEOBARVIS"); then the color comes
+  back in a rainbow. Josepho gives color back to whatever is within 3 tiles. Skatulkari walk about with boxes on
+  their heads; a stomp knocks the box off, and a kicked box slides, bounces and shuts a Discolorer down for good.
+  The prism gives black and white back to the flag - black ledges carry Josepho for the first time. At the top, the
+  mirror shows Josepho split in two, black and white; the Sorter stumbles over its own words ("JSI ZTRACENY.
+  ZTRACENA. ZTRACENE..."), Josepho answers "NIKAM SE NEZTRACIM. JSEM TADY.", and when the flag unfurls the
+  reflection comes together.
 - Wings of light in the colors of Josepho's flag when fluttering, from the Tower on.
 - A background for the Tower: a pale wall, black-framed windows onto the night, a checkered frieze.
+- Talks can have a `row`, for tall levels. Levels marked `climb` get a check that the flag can be reached at all.
 
 ### Changed
 
-- The level bot jumps a Discolorer's ray, waits while grey before grey paint, and walks up to grey paint to color
-  it before jumping.
+- The level bot finds its way in climbing levels: from the ground it can stand on it works out which ledge can be
+  reached from which and follows the shortest way to the flag - left, right and up - again after every fall. It
+  jumps a Discolorer's ray, steps out of a shaft's ray and climbs after it has fired, and lets grey paint take its
+  color back before jumping to it.
+
+### Fixed
+
+- The flag counts only at its height: in a tall level it may stand right above the start.
 
 ## 0.8.1 - 2026-10-14
 

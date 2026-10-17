@@ -336,10 +336,6 @@ export class Player {
             // sorted by an arch: a soft glow in that color, now and then fading out for a moment
             gfx.tint(`${name}~`, x - 1, y - 1, sortColor);
         }
-        if (this.greyT > 0 && Math.floor(tick / 4) % 2 === 0) {
-            // hit by a Discolorer's ray: grey for a while - no color to give back
-            gfx.tint(`${name}~`, x - 1, y - 1, C.GREY);
-        }
         if (this.flagWings && this.fluttering && this.flutterFuel > 0 && !this.onGround) {
             // after the Tower: wings of light in the colors of Josepho's own flag
             const flap = Math.floor(this.anim / 3) % 2;
@@ -643,7 +639,8 @@ export class GreatPrism {
     }
 
     hits(p) {
-        return !this.awake && p.px + p.w > this.cx - 6 && p.px < this.cx + 6;
+        // (and at its height: in a tall level the flag may stand right above the start)
+        return !this.awake && p.px + p.w > this.cx - 6 && p.px < this.cx + 6 && p.py < this.bottom && p.bottom > this.bottom - 32;
     }
 
     render(gfx, camX, camY, tick) {
@@ -1712,14 +1709,16 @@ export class Fox {
 
 // ---------------------------------------------------------------------------------------------- level 8 on
 
-// how a Discolorer behaves
-const DISCOLOR = { rest: 150, charge: 40, fire: 14, range: 20, grey: 150 };
+// how a Discolorer behaves: `charge` frames of breathing in, in three stages (see Discolorer)
+const DISCOLOR = { rest: 150, charge: 60, fire: 14, range: 20, grey: 150 };
 
 /**
- * A Discolorer (legend kind 'discolor', `dir` 1 or -1, `rest` frames between shots): a device of the Sorter's.
- * Every so often it breathes in (blinking) and fires a grey ray its way along its row, two tiles tall (its row and
- * the one below), as far as the first solid tile. Paint tiles in the ray go grey and lose their volume; Josepho
- * caught in it goes grey for a while (and cannot give color back). A kicked box shuts it down for good.
+ * A Discolorer (legend kind 'discolor'): a device of the Sorter's. `dir` is where it fires - 1 right, -1 left, 'up'
+ * or 'down'; `rest` frames between shots; `phase` frames into the rest at the start. Before each shot it breathes in
+ * for a second, louder and louder: its eye glows and it hums; grey motes are drawn into it, its ticking quickens and
+ * a dotted line shows where the ray will go; then the eye flashes, the line darkens and it whines - and fires a grey
+ * ray two tiles wide, as far as the first solid tile. Paint tiles in the ray go grey and lose their volume; Josepho
+ * caught in it loses their color for a while (and cannot give color back). A kicked box shuts it down for good.
  */
 export class Discolorer {
     alive = true;
@@ -1735,10 +1734,12 @@ export class Discolorer {
         this.x = tx * TILE;
         this.y = ty * TILE;
         this.dir = entry.dir ?? -1;
+        this.vertical = this.dir === 'up' || this.dir === 'down';
+        this.step = this.dir === 'up' || this.dir === -1 ? -1 : 1;
         this.rest = entry.rest ?? DISCOLOR.rest;
         this.state = 'rest'; // rest | charge | fire | off
         this.timer = entry.phase ?? 0;
-        this.reach = tx;
+        this.path = this.trace(null);
     }
 
     get px() {
@@ -1753,55 +1754,125 @@ export class Discolorer {
         return p.px < this.x + 8 && p.px + p.w > this.x && p.py < this.y + 8 && p.bottom > this.y;
     }
 
-    /** The rows its ray covers: its own and the one below. */
-    inRay(px0, px1, py0, py1) {
-        const x0 = Math.min(this.x, this.reach * TILE);
-        const x1 = Math.max(this.x + 8, (this.reach + 1) * TILE);
-        return px1 > x0 && px0 < x1 && py1 > this.y && py0 < this.y + 2 * TILE;
-    }
-
-    update(game) {
-        if (this.state === 'off') {
-            return;
+    /** How far its ray goes: tile steps from its own cell to the first solid tile (not paint), up to `range`. */
+    trace(level) {
+        const cells = [];
+        if (!level) {
+            return cells;
         }
-        this.timer++;
-        if (this.state === 'rest' && this.timer >= this.rest) {
-            this.state = 'charge';
-            this.timer = 0;
-        } else if (this.state === 'charge' && this.timer >= DISCOLOR.charge) {
-            this.state = 'fire';
-            this.timer = 0;
-            this.shoot(game);
-        } else if (this.state === 'fire' && this.timer >= DISCOLOR.fire) {
-            this.state = 'rest';
-            this.timer = 0;
-        }
-    }
-
-    /** The ray: paint tiles in its two rows go grey; so does Josepho, if it catches them. */
-    shoot(game) {
-        const level = game.level;
-        let x = this.tx + this.dir;
-        for (let i = 0; i < DISCOLOR.range; i++, x += this.dir) {
-            const blocked = [this.ty, this.ty + 1].every((y) => {
+        for (let i = 1; i <= DISCOLOR.range; i++) {
+            const pair = this.vertical
+                ? [
+                      [this.tx, this.ty + i * this.step],
+                      [this.tx + 1, this.ty + i * this.step],
+                  ]
+                : [
+                      [this.tx + i * this.step, this.ty],
+                      [this.tx + i * this.step, this.ty + 1],
+                  ];
+            const blocked = pair.every(([x, y]) => {
                 const ch = level.tile(x, y);
                 return level.isSolidTile(ch) && level.legend[ch]?.kind !== 'paint';
             });
             if (blocked) {
                 break;
             }
-            for (const y of [this.ty, this.ty + 1]) {
-                if (level.legend[level.tile(x, y)]?.kind === 'paint') {
-                    level.greyed.add(`${x},${y}`);
-                }
-            }
-            this.reach = x;
+            cells.push(...pair);
         }
-        game.sound.play('bump', { pitch: 0.4 });
+        return cells;
+    }
+
+    /** The ray's rectangle in pixels. */
+    rayBox() {
+        if (!this.path.length) {
+            return null;
+        }
+        const xs = this.path.map(([x]) => x);
+        const ys = this.path.map(([, y]) => y);
+        return {
+            x0: Math.min(...xs) * TILE,
+            x1: (Math.max(...xs) + 1) * TILE,
+            y0: Math.min(...ys) * TILE,
+            y1: (Math.max(...ys) + 1) * TILE,
+        };
+    }
+
+    /** Does the ray cover this box (pixels)? */
+    inRay(px0, px1, py0, py1) {
+        const r = this.rayBox();
+        return !!r && px1 > r.x0 && px0 < r.x1 && py1 > r.y0 && py0 < r.y1;
+    }
+
+    /** Which stage of breathing in it is at: 0 none, 1 glowing, 2 drawing in, 3 about to fire. */
+    get stage() {
+        if (this.state !== 'charge') {
+            return 0;
+        }
+        return this.timer < 20 ? 1 : this.timer < 44 ? 2 : 3;
+    }
+
+    update(game) {
+        if (this.state === 'off') {
+            return;
+        }
+        if (!this.path.length) {
+            this.path = this.trace(game.level);
+        }
+        this.timer++;
+        if (this.state === 'rest' && this.timer >= this.rest) {
+            this.state = 'charge';
+            this.timer = 0;
+        } else if (this.state === 'charge') {
+            // louder and faster as it breathes in
+            const every = [0, 15, 6, 3][this.stage];
+            if (this.timer % every === 0 && this.onScreen(game)) {
+                game.sound.play('text', { pitch: 0.5 + this.stage * 0.35 + this.timer / 120, volume: 0.3 + this.stage * 0.2 });
+            }
+            if (this.stage >= 2 && this.timer % 3 === 0) {
+                // grey motes drawn into its eye
+                const a = (this.timer * 1.7) % (Math.PI * 2);
+                game.fx.add({
+                    kind: 'px',
+                    x: this.x + 4 + Math.cos(a) * 12,
+                    y: this.y + 4 + Math.sin(a) * 12,
+                    vx: -Math.cos(a) * 0.8,
+                    vy: -Math.sin(a) * 0.8,
+                    life: 14,
+                    color: C.GREY_LT,
+                });
+            }
+            if (this.timer >= DISCOLOR.charge) {
+                this.state = 'fire';
+                this.timer = 0;
+                this.shoot(game);
+            }
+        } else if (this.state === 'fire' && this.timer >= DISCOLOR.fire) {
+            this.state = 'rest';
+            this.timer = 0;
+        }
+    }
+
+    onScreen(game) {
+        return Math.abs(this.x - (game.camX + 96)) < 140 && Math.abs(this.y - (game.camY + 54)) < 100;
+    }
+
+    /** The ray: paint tiles in it go grey; so does Josepho's color, if it catches them. */
+    shoot(game) {
+        const level = game.level;
+        this.path = this.trace(level);
+        for (const [x, y] of this.path) {
+            if (level.legend[level.tile(x, y)]?.kind === 'paint') {
+                level.greyed.add(`${x},${y}`);
+            }
+        }
+        if (this.onScreen(game)) {
+            game.sound.play('break', { pitch: 0.5 });
+            game.sound.play('bump', { pitch: 0.3 });
+            game.fx.kick(2);
+        }
         const p = game.player;
         if (!p.dead && this.inRay(p.px, p.px + p.w, p.py, p.bottom)) {
-            p.greyT = DISCOLOR.grey;
-            game.fx.burst(p.cx, p.py + 4, 10, [C.GREY, C.GREY_LT, C.GREY_DK], 1);
+            game.loseColor();
         }
     }
 
@@ -1815,22 +1886,47 @@ export class Discolorer {
     render(gfx, camX, camY) {
         const x = this.x - camX;
         const y = this.y - camY;
-        // the ray
-        if (this.state === 'fire') {
-            const x0 = Math.min(this.x + (this.dir > 0 ? 8 : 0), this.reach * TILE + (this.dir > 0 ? 8 : 0));
-            const x1 = Math.max(this.x + (this.dir > 0 ? 8 : 0), this.reach * TILE + (this.dir > 0 ? 8 : 0));
-            for (let r = 0; r < 2 * TILE; r++) {
-                gfx.ditherRow(r % 3 ? 'dither50' : 'dither25', x0 - camX, y + r, x1 - x0, C.GREY_LT, r);
+        const r = this.rayBox();
+        if (r && this.state === 'fire') {
+            // the ray
+            for (let yy = r.y0; yy < r.y1; yy++) {
+                gfx.ditherRow((yy - r.y0) % 3 ? 'dither50' : 'dither25', r.x0 - camX, yy - camY, r.x1 - r.x0, C.GREY_LT, yy);
+            }
+        } else if (r && this.stage >= 2) {
+            // where the ray will go: a dotted line, darker at the last moment
+            const color = this.stage === 3 ? C.GREY_DK : C.GREY;
+            const cx = (r.x0 + r.x1) / 2 - camX;
+            const cy = (r.y0 + r.y1) / 2 - camY;
+            const dash = Math.floor(this.timer / 2) % 4;
+            if (this.vertical) {
+                for (let yy = r.y0 + dash; yy < r.y1; yy += 4) {
+                    gfx.pixel(cx - 1, yy - camY, color);
+                    gfx.pixel(cx, yy - camY, color);
+                }
+            } else {
+                for (let xx = r.x0 + dash; xx < r.x1; xx += 4) {
+                    gfx.pixel(xx - camX, cy - 1, color);
+                    gfx.pixel(xx - camX, cy, color);
+                }
             }
         }
         gfx.rect(x, y, 8, 8, C.INK);
         gfx.rect(x + 1, y + 1, 6, 6, this.state === 'off' ? C.GREY_DK : C.GREY);
-        // its eye: blinks while it breathes in
-        const charging = this.state === 'charge' && Math.floor(this.timer / 4) % 2 === 0;
-        const eye = this.state === 'off' ? C.INK : charging || this.state === 'fire' ? C.WHITE : C.GREY_DK;
-        gfx.rect(x + (this.dir > 0 ? 5 : 1), y + 3, 2, 2, eye);
-        if (this.state === 'charge' && this.timer > DISCOLOR.charge - 12) {
-            gfx.pixel(x + (this.dir > 0 ? 9 : -2), y + 4 + (this.timer % 2), C.WHITE);
+        // its eye: dark at rest, glowing, flickering, then flashing white
+        const stage = this.stage;
+        let eye = C.GREY_DK;
+        if (this.state === 'off') {
+            eye = C.INK;
+        } else if (this.state === 'fire' || (stage === 3 && Math.floor(this.timer / 2) % 2 === 0)) {
+            eye = C.WHITE;
+        } else if (stage >= 1) {
+            eye = Math.floor(this.timer / (stage === 1 ? 8 : 4)) % 2 ? C.GREY_LT : C.WHITE;
+        }
+        const ex = this.vertical ? 3 : this.step > 0 ? 5 : 1;
+        const ey = this.vertical ? (this.step > 0 ? 5 : 1) : 3;
+        gfx.rect(x + ex, y + ey, 2, 2, eye);
+        if (stage === 3) {
+            gfx.frame(x - 1, y - 1, 10, 10, Math.floor(this.timer / 2) % 2 ? C.WHITE : C.GREY_LT);
         }
     }
 }

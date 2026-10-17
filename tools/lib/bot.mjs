@@ -238,6 +238,9 @@ function switchOverhead(level, p, ahead = 0, timers = new Map()) {
  * maxFrames: give up after this many frames (default 6 minutes).
  */
 export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
+    if (game.def.climb) {
+        return runClimbBot(game, { maxFrames });
+    }
     const deaths = [];
     let hold = 0;
     let flutterArmed = false;
@@ -516,4 +519,238 @@ export function runBot(game, { maxFrames = 60 * 60 * 6 } = {}) {
         lastX = p.px;
     }
     return { cleared: false, frames: maxFrames, deaths, stuckAt: { x: Math.floor(game.player.px / 8), y: Math.floor(game.player.py / 8) } };
+}
+
+// ------------------------------------------------------------------------------------------- climbing levels
+
+/**
+ * The ground Josepho can stand on, as flat segments { row, x0, x1, solid } (tiles), and which segment can be
+ * reached from which: a jump up to 4 rows, across a gap of a few tiles, or any drop. Gated, light and paint tiles
+ * count as there. Used by the climbing bot (and the reachability check) for levels that go up as well as across.
+ */
+export function standGraph(level) {
+    const stand = (x, y) => {
+        const ch = level.tile(x, y);
+        // (a gated tile whose color is not back yet counts too: the way to its prism comes first)
+        return level.isSolidTile(ch) || level.isOneWay(ch) || ['solid', 'oneway'].includes(level.legend[ch]?.kind);
+    };
+    const solidAt = (x, y) => level.isSolidTile(level.tile(x, y));
+    const segs = [];
+    for (let y = 1; y < level.h; y++) {
+        let start = -1;
+        for (let x = 0; x <= level.w; x++) {
+            const ok = x < level.w && stand(x, y) && !solidAt(x, y - 1) && !solidAt(x, y - 2);
+            if (ok && start < 0) {
+                start = x;
+            } else if (!ok && start >= 0) {
+                segs.push({ row: y, x0: start, x1: x - 1, solid: solidAt(start, y) });
+                start = -1;
+            }
+        }
+    }
+    const edges = segs.map(() => []);
+    segs.forEach((a, i) => {
+        segs.forEach((b, j) => {
+            if (i === j) {
+                return;
+            }
+            const rise = a.row - b.row; // up is positive
+            const gap = Math.max(0, Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1) - 1);
+            const overlap = Math.min(a.x1, b.x1) >= Math.max(a.x0, b.x0);
+            if (rise > 4 || (rise > 0 && gap > 4 - Math.floor(rise / 2)) || (rise <= 0 && gap > 6)) {
+                return;
+            }
+            // a solid block right above cannot be jumped up through: only from beside it
+            if (rise > 0 && overlap && b.solid && a.x0 >= b.x0 && a.x1 <= b.x1) {
+                return;
+            }
+            edges[i].push(j);
+        });
+    });
+    return { segs, edges };
+}
+
+/** The segment Josepho stands on (or the nearest one under them). */
+function segmentAt(graph, cx, bottom) {
+    const tx = Math.floor(cx / 8);
+    const row = Math.round(bottom / 8);
+    return graph.segs.findIndex((s) => s.row === row && tx >= s.x0 - 1 && tx <= s.x1 + 1);
+}
+
+/** The shortest way from segment `from` to one of `goals` (a list of segment indices), or null. */
+function route(graph, from, goals) {
+    const prev = new Map([[from, -1]]);
+    const queue = [from];
+    while (queue.length) {
+        const i = queue.shift();
+        if (goals.includes(i)) {
+            const path = [];
+            for (let k = i; k >= 0; k = prev.get(k)) {
+                path.unshift(k);
+            }
+            return path;
+        }
+        for (const j of graph.edges[i]) {
+            if (!prev.has(j)) {
+                prev.set(j, i);
+                queue.push(j);
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * The climbing bot: finds its way on the stand graph to the flag - left, right and up - and follows it, segment by
+ * segment, working the path out again whenever it stands on new ground (after a fall too). It jumps Discolorers'
+ * rays, lets grey paint take its color back before jumping to it, waits for a shaft's ray to pass, jumps over
+ * walking creatures, and kicks the boxes in its way just by walking into them.
+ */
+function runClimbBot(game, { maxFrames }) {
+    const deaths = [];
+    const level = game.level;
+    const graph = standGraph(level);
+    const flag = game.greatPrism;
+    const goals = [segmentAt(graph, flag.cx, flag.bottom)].filter((i) => i >= 0);
+    let path = null;
+    let hold = 0;
+    let dir = 1;
+    let lastSeg = -2;
+    let idle = 0;
+    let lastPos = '';
+
+    for (let f = 0; f < maxFrames; f++) {
+        if (game.state === 'clear') {
+            return { cleared: true, frames: f, deaths, stuckAt: null };
+        }
+        if (game.state !== 'play') {
+            step(game);
+            continue;
+        }
+        if (game.talk) {
+            step(game, f % 6 === 0 ? [JUMP] : []);
+            continue;
+        }
+        const p = game.player;
+        const keys = [];
+        if (p.onGround && hold === 0) {
+            const here = segmentAt(graph, p.cx, p.bottom);
+            if (here >= 0 && (here !== lastSeg || !path)) {
+                path = route(graph, here, goals);
+                lastSeg = here;
+            }
+            const next = path && path.length > 1 ? graph.segs[path[1]] : null;
+            const cur = here >= 0 ? graph.segs[here] : null;
+            if (path && path.length === 1) {
+                // on the flag's own ground: walk to it
+                keys.push(flag.cx > p.cx ? RIGHT : LEFT);
+            } else if (next && cur) {
+                const rise = cur.row - next.row;
+                const overlap = Math.min(cur.x1, next.x1) >= Math.max(cur.x0, next.x0);
+                // where to take off from (pixels), and which way to go once in the air
+                let takeoff;
+                if (rise > 0 && overlap && !next.solid) {
+                    takeoff = (Math.max(cur.x0, next.x0) + Math.min(cur.x1, next.x1) + 1) * 4;
+                    dir = 0;
+                } else if (rise > 0 && overlap && next.solid) {
+                    takeoff = cur.x0 < next.x0 ? next.x0 * 8 - 4 : (next.x1 + 1) * 8 + 4;
+                    dir = cur.x0 < next.x0 ? 1 : -1;
+                } else {
+                    dir = next.x0 > cur.x1 ? 1 : next.x1 < cur.x0 ? -1 : Math.sign((next.x0 + next.x1) / 2 - (cur.x0 + cur.x1) / 2) || 1;
+                    takeoff = dir > 0 ? (cur.x1 + 1) * 8 - 4 : cur.x0 * 8 + 4;
+                    if (rise < 0 && overlap) {
+                        takeoff = dir > 0 ? (cur.x1 + 1) * 8 + 2 : cur.x0 * 8 - 2;
+                    }
+                }
+                const d = takeoff - p.cx;
+                const landing = [...Array(next.x1 - next.x0 + 1).keys()].map((k) => `${next.x0 + k},${next.row}`);
+                const greyLanding = landing.some((k) => level.greyed.has(k));
+                // (a shaft's ray due soon: wait until it has fired; also when the way there leads through it)
+                const shaftRay = game.enemies.some(
+                    (e) =>
+                        e.vertical &&
+                        e.state !== 'off' &&
+                        (e.state === 'charge' || (e.state === 'rest' && e.timer > e.rest - 50)) &&
+                        (e.inRay((next.x0 - 1) * 8, (next.x1 + 2) * 8, (next.row - 3) * 8, (next.row + 1) * 8) ||
+                            e.inRay(Math.min(p.cx, takeoff) - 4, Math.max(p.cx, takeoff) + 4, p.py, p.bottom)),
+                );
+                const ray = rayAhead(game, p);
+                const creature = game.enemies.find(
+                    (e) => e.state === 'walk' && Math.abs(e.py + (e.h ?? 8) - p.bottom) < 6 && Math.sign(e.px - p.px) === (Math.sign(d) || dir) && Math.abs(e.px - p.px) < 20,
+                );
+                // a shaft's ray about to fire where Josepho stands: step out of it, to the side
+                const inShaftRay = game.enemies.find(
+                    (e) => e.vertical && e.state !== 'off' && (e.state === 'charge' || e.timer > e.rest - 50) && e.inRay(p.px - 2, p.px + p.w + 2, p.py, p.bottom),
+                );
+                if (inShaftRay) {
+                    keys.push(p.cx >= inShaftRay.x + 8 ? RIGHT : LEFT);
+                } else if (ray) {
+                    hold = 14; // jump straight up over the ray
+                    dir = 0;
+                } else if (creature && Math.abs(d) > 6) {
+                    hold = 12;
+                    dir = Math.sign(d);
+                } else if (Math.abs(d) > 3 && !shaftRay) {
+                    keys.push(d > 0 ? RIGHT : LEFT);
+                } else if (Math.abs(d) > 3) {
+                    // a shaft's ray is due on the way: wait
+                } else if ((greyLanding && (p.greyT > 0 || f % 4 !== 0)) || shaftRay) {
+                    // wait: the landing is grey (it takes its color back as Josepho waits nearby), or a ray is due
+                } else if (rise < 0 && overlap === false) {
+                    keys.push(dir > 0 ? RIGHT : LEFT);
+                } else if (rise <= 0 && !overlap) {
+                    hold = rise === 0 ? 8 : 4;
+                } else if (rise < 0) {
+                    keys.push(dir > 0 ? RIGHT : LEFT);
+                } else if (dir === 0 && Math.abs(p.vx) > 4) {
+                    // a jump straight up: stand still first
+                } else {
+                    hold = rise >= 3 ? 16 : 12;
+                }
+            }
+        } else if (!p.onGround) {
+            // in the air: steer toward the next segment (when there is one)
+            const next = path && path.length > 1 ? graph.segs[path[1]] : null;
+            if (next) {
+                // keep over the next segment (a little inside its ends)
+                const mid = (next.x0 + next.x1 + 1) * 4;
+                if (p.cx < next.x0 * 8 + 3) {
+                    keys.push(RIGHT);
+                } else if (p.cx > (next.x1 + 1) * 8 - 3) {
+                    keys.push(LEFT);
+                } else if (Math.abs(p.cx - mid) > 4 && Math.abs(p.vx) > 6) {
+                    keys.push(p.cx < mid ? RIGHT : LEFT);
+                }
+            }
+        }
+        if (hold > 0) {
+            keys.push(JUMP);
+            if (dir > 0) {
+                keys.push(RIGHT);
+            } else if (dir < 0) {
+                keys.push(LEFT);
+            }
+            hold--;
+        }
+        const deadBefore = p.dead;
+        step(game, keys);
+        if (!deadBefore && game.player.dead) {
+            deaths.push({ frame: f, tile: Math.floor(p.px / 8), row: Math.floor(p.py / 8), cause: game.player.deathCause });
+            path = null;
+            lastSeg = -2;
+        }
+        const pos = `${Math.round(p.px / 4)},${Math.round(p.py / 4)}`;
+        idle = pos === lastPos ? idle + 1 : 0;
+        lastPos = pos;
+        if (idle > 900) {
+            return { cleared: false, frames: f, deaths, stuckAt: { x: Math.floor(p.px / 8), y: Math.floor(p.py / 8) } };
+        }
+    }
+    const p = game.player;
+    return { cleared: false, frames: maxFrames, deaths, stuckAt: { x: Math.floor(p.px / 8), y: Math.floor(p.py / 8) } };
+}
+
+/** A sideways Discolorer about to fire along Josepho's row (in its last stage): jump. */
+function rayAhead(game, p) {
+    return game.enemies.some((e) => e.rest !== undefined && !e.vertical && e.stage === 3 && e.inRay(p.px, p.px + p.w, p.py, p.bottom));
 }

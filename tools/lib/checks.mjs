@@ -1,7 +1,8 @@
 // checks.mjs - static checks of a level definition, and a simple jump-reach check of its map.
 
 import { glyphName, wrapText } from '../../src/font.js';
-import { BUILTIN_LEGEND, ENTITY_CHARS, TILE_CHARS } from '../../src/world.js';
+import { BUILTIN_LEGEND, ENTITY_CHARS, Level, TILE_CHARS } from '../../src/world.js';
+import { standGraph } from './bot.mjs';
 
 const BUILTIN_GROUPS = ['sky', 'earth', 'green', 'bloom', 'spirit'];
 const SIGN_TEXT_WIDTH = 192 - 20;
@@ -57,8 +58,8 @@ export function checkLevel(def, world) {
             errors.push(`legend character '${ch}' is already used by the game`);
         }
         if (entry.kind === 'discolor') {
-            if (![1, -1].includes(entry.dir)) {
-                errors.push(`legend '${ch}' (discolor): dir must be 1 or -1`);
+            if (![1, -1, 'up', 'down'].includes(entry.dir)) {
+                errors.push(`legend '${ch}' (discolor): dir must be 1, -1, 'up' or 'down'`);
             }
             continue;
         }
@@ -167,6 +168,45 @@ export function checkLevel(def, world) {
         }
     }
     return { errors, warnings };
+}
+
+/**
+ * A level that goes up as well as across (`climb`): can the flag be reached from the start at all - left, right
+ * and up, by the same jumps the climbing bot makes? (Errors, not warnings: an unreachable flag is a broken level.)
+ */
+export function checkClimb(def) {
+    const errors = [];
+    if (!def.climb) {
+        return errors;
+    }
+    const level = new Level(def);
+    const graph = standGraph(level);
+    const find = (ch) => {
+        for (let y = 0; y < def.map.length; y++) {
+            const x = def.map[y].indexOf(ch);
+            if (x >= 0) {
+                return graph.segs.findIndex((s) => s.row === y + 1 && x >= s.x0 - 1 && x <= s.x1 + 1);
+            }
+        }
+        return -1;
+    };
+    const start = find('@');
+    const goal = find('F');
+    const seen = new Set([start]);
+    const queue = [start];
+    while (queue.length) {
+        for (const j of graph.edges[queue.shift()]) {
+            if (!seen.has(j)) {
+                seen.add(j);
+                queue.push(j);
+            }
+        }
+    }
+    if (start < 0 || goal < 0 || !seen.has(goal)) {
+        const top = Math.min(...[...seen].map((i) => graph.segs[i]?.row ?? Infinity));
+        errors.push(`the flag cannot be reached from the start (the highest ground reached is row ${top})`);
+    }
+    return errors;
 }
 
 /**

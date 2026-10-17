@@ -25,7 +25,8 @@ One file per level: `level1.js`, `level2.js`, ... Each exports one object. `inde
 | `legend` | no | The level's own color-gated tiles: `{ char: { gate, kind, look } }`. |
 | `startOn` | no | Color groups already on when the level starts, e.g. `['sky', 'earth']`. |
 | `switches` | if the map has `P` | The two color groups a tide switch flips between, e.g. `['shallow', 'deep']`. |
-| `talks` | no | Conversations: `[{ at: column, lines: [[speaker, text], ...] }]`, shown when Josepho first reaches `at`. |
+| `talks` | no | Conversations: `[{ at: column, lines: [[speaker, text], ...] }]`, shown when Josepho first reaches `at`. With `row`, only once Josepho is at that row or higher (a tall level). |
+| `climb` | no | `true`: a level that goes up as well as across. The test bot then finds its way to the flag (left, right and up), and the checks make sure the flag can be reached from the start at all. |
 | `freeGreylings` | no | `true` (level 5 on): a stomp frees a greyling instead of squashing it - it gets its colors back and leaves a mote. In a dark level it flies along with Josepho and lights the way ahead (up to three; they stay after Josepho dies and fly home at the flag); otherwise it runs off home. A freed greyling never comes back grey. |
 | `freeTalk` | no | Lines `[[speaker, text], ...]` shown when the first greyling of the level is freed. |
 | `pulse` | if the map has pulse ledges | The aurora's rhythm: `{ period: frames, order: [colors] }` - each color's turn lasts `period` frames. |
@@ -194,15 +195,20 @@ Rules the level 7 build taught:
 
 A paint tile (`kind: 'paint'`, `look: 'block'` or `'ledge'`, `gate` = its color) is solid in its color - until a
 Discolorer's ray turns it grey: then it has no volume, until Josepho comes within 3 tiles and gives the color back.
-A Discolorer (`kind: 'discolor'`, `dir` 1 to fire right or -1 left, `rest` frames between shots, `phase` frames into
-the rest at the start) breathes in for two thirds of a second - its eye blinks - and fires a grey ray two tiles tall
-(its own row and the one below), as far as the first solid tile. Josepho caught in it goes grey for two and a half
-seconds and cannot give color back - and the paint under them is grey too. Jump the ray. A box kicked into a
-Discolorer shuts it down for good (also after Josepho dies).
+A Discolorer (`kind: 'discolor'`, `dir` 1 to fire right, -1 left, `'up'` or `'down'`; `rest` frames between shots,
+`phase` frames into the rest at the start) breathes in for a second, louder and louder: its eye glows and it ticks;
+grey motes are drawn into it, the ticking quickens and a dotted line shows the ray's way; then its eye flashes in a
+frame and the tone rises - and it fires a grey ray two tiles wide (sideways: its own row and the one below; up or
+down: its own column and the one to the right), as far as the first solid tile. Josepho caught in it loses their
+color for two and a half seconds - a grey drop over their head shows the time left - and cannot give color back:
+grey paint near them fizzles, and the paint under them is grey too. Jump a sideways ray; step out of a shaft's ray
+and climb after it has fired. A box kicked into a Discolorer shuts it down for good (also after Josepho dies).
 
 Rules the level 8 build taught:
 
-- Put pits in the Tower with stairs out on both sides: whoever falls in may land at either end.
+- A tall level: make it one screen wide (24 tiles) and climb it in a zigzag - floors with a hole on one side, left
+  and right in turns, with ledges in the hole up to the next floor; falling through drops one floor. Mark it `climb`.
+- Signs are numbered in map order, top to bottom: in a tall level the highest sign is the first.
 - Leave two rows clear under anything hanging over a walkway (a Discolorer's pillar): Josepho is that tall.
 - Never put a walking creature where Josepho lands after a ray bridge - landing and dodging at once is too much.
 
